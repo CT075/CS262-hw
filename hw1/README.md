@@ -44,3 +44,4 @@ To simplify the implementation, we also enforce the following requirements:
 - Requests have a `params` field containing a list; unitary endpoints should
   be passed an empty list. Keyword arguments are disallowed.
 - The `id` field will never contain a NULL value.
+- Batch requests are disallowed.

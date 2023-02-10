@@ -1,12 +1,12 @@
 import struct
 import asyncio
-from collections import defaultdict
-from typing import NewType, DefaultDict, Callable, Awaitable
+from collections import defaultdict, abc
+from typing import NewType, DefaultDict
 
 MsgId = NewType("MsgId", int)
 
 # 4 bytes
-MAX_MSG_SIZE = 2 << 32
+MAX_MSG_SIZE = 2 << 32 - 1
 MAX_ID = 2 << 32
 
 # > = big endian
@@ -15,6 +15,8 @@ MAX_ID = 2 << 32
 # b = 1 byte (more?)
 HEADER_FORMAT = ">llb"
 HEADER_SIZE = 4 + 4 + 1
+
+STRING_ENCODING = "utf8"
 
 
 def format_header(*, size: int, id: MsgId, more: bool):
@@ -25,12 +27,11 @@ def increment_msgid(id: MsgId) -> MsgId:
     return MsgId((id + 1) % MAX_ID)
 
 
-class Session:
+class Session(abc.AsyncIterator[bytes]):
     reader: asyncio.StreamReader
     writer: asyncio.StreamWriter
     curr_id: MsgId
     pending_msgs: DefaultDict[MsgId, bytes]
-    handle: Callable[[bytes], Awaitable[None]]
 
     def __init__(self, reader, writer, handle):
         self.currId = MsgId(0)
@@ -55,13 +56,23 @@ class Session:
             self.writer.write(packet)
             await self.writer.drain()
 
-    async def recv_single(self) -> None:
-        header = await self.reader.read(HEADER_SIZE)
-        size, id, more = struct.unpack(HEADER_FORMAT, header)
-        chunk = await self.reader.read(size)
-        id = MsgId(id)
-        self.pending_msgs[id] += chunk
-        if not more:
-            msg = self.pending_msgs[id]
-            del self.pending_msgs[id]
-            await self.handle(msg)
+    async def recv_single(self) -> bytes:
+        while True:
+            header = await self.reader.read(HEADER_SIZE)
+            size, id, more = struct.unpack(HEADER_FORMAT, header)
+            chunk = await self.reader.read(size)
+            id = MsgId(id)
+            self.pending_msgs[id] += chunk
+            if not more:
+                payload = self.pending_msgs[id]
+                del self.pending_msgs[id]
+                return payload
+
+    def __aiter__(self) -> abc.AsyncIterator[bytes]:
+        return self
+
+    async def __anext__(self) -> bytes:
+        try:
+            return await self.recv_single()
+        except (EOFError, asyncio.CancelledError):
+            raise StopAsyncIteration
