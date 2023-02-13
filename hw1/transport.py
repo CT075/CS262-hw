@@ -39,12 +39,11 @@ class Session(abc.AsyncIterator[bytes]):
     # atomic operations when used with primitive keys, so it'd be fine anyway.
     pending_msgs: DefaultDict[MsgId, bytes]
 
-    def __init__(self, reader, writer, handle):
+    def __init__(self, reader, writer):
         self.currId = MsgId(0)
         self.reader = reader
         self.writer = writer
         self.pending_msgs = defaultdict(bytes)
-        self.handle = handle
 
     def fresh_id(self) -> MsgId:
         prev = self.currId

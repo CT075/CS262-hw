@@ -1,25 +1,32 @@
-import socket
-from jsonrpc import Session
+import asyncio
+from jsonrpc import spawn_session, Session
 from typing import Optional, List
 
+
 class Client:
+    session: Optional[Session]
+    host: str
+    port: int
 
     # initialize Client
-    def __init__(self, host, port):
+    def __init__(self, host, port) -> None:
         # make the connection
-        client_socket = socket.socket()
-        client_socket.connect((host, port))
+        self.host = host
+        self.port = port
+        self.session = None
 
+    async def connect(self):
+        reader, writer = await asyncio.open_connection(self.host, self.port)
+        self.session = spawn_session(reader, writer)
 
     # Log in user
     def login(self, user: str) -> Optional[Session]:
         # check that this user exists
         exists = True
-        if not exists: 
+        if not exists:
             return None
 
         # if does exist, begin Session
-
 
     # Create a new account with a unique user name
     # TODO: return type
@@ -31,13 +38,11 @@ class Client:
 
         # if unique, create user
 
-
     # List all accounts or subset
     def list(self, filter) -> List[str]:
         # retrieve and filter the accounts
         accounts = []
         return accounts
-
 
     # Send the message to user
     # TODO: return type
@@ -50,13 +55,11 @@ class Client:
         # if user logged in, deliver immediately
         # if not logged in, queue msg and deliver on demand
 
-
     # Delete an account
     def delete(self, user: str):
         # handle undelivered messages
         # delete user
         return None
-
 
     # TODO: Deliver undelivered messages to a particular user
     def deliver_undelivered(self, user: str):

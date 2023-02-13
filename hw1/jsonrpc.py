@@ -259,3 +259,8 @@ class Session:
                             continue
             else:
                 self.run_in_background(self.report_error_nofail(BadRequestError(obj)))
+
+
+def spawn_session(reader, writer) -> Session:
+    sess = transport.Session(reader, writer)
+    return Session(sess)
