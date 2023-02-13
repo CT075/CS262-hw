@@ -22,45 +22,60 @@ class Serializeable(Protocol):
 
 RequestId = NewType("RequestId", int)
 
-
+# Calculate the next request ID
 def increment_requestid(id: RequestId) -> RequestId:
     return RequestId(id + 1)
 
-
+# This class formats each client request as a string,
+# according to jsonrpc format
 class Request:
+    # Each request has an id,
+    # a server-side method it is referencing,
+    # and a list of parameters to that method
     id: Optional[RequestId]
     method: str
     params: list[Serializeable]
 
+    # Initialize the request
     def __init__(self, *, method, params=[], id=None):
         self.method = method
         self.params = params
         self.id = id
 
+    # Convert this request to jsonrpc format
     def serialize(self) -> str:
+        # first, collect the data into a dictionary
         t: dict[str, Any] = {
             "jsonrpc": "2.0",
             "method": self.method,
             "params": self.params,
         }
+        # set the request ID if it exists
         if self.id is not None:
             t["id"] = self.id
+        # then, convert the dictionary to a string
         return json.dumps(t)
 
+    # Is this request a notification?
+    # (notifications do not have IDs)
     def is_notification(self) -> bool:
         return self.id is None
 
-
+# This class formats exceptions as a string,
+# according to jsonrpc format
 class JsonRpcError(Exception):
+    # TODO: Each error has a code ...
     code: int
     message: str
     data: Any
 
+    # Initialize the error
     def __init__(self, *, code, message, data):
         self.code = code
         self.message = message
         self.data = data
 
+    # Convert this error to jsonrpc format 
     def serialize(self) -> str:
         t: dict[str, Any] = {
             "code": self.code,
