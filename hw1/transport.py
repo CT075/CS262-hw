@@ -31,6 +31,12 @@ class Session(abc.AsyncIterator[bytes]):
     reader: asyncio.StreamReader
     writer: asyncio.StreamWriter
     curr_id: MsgId
+
+    # In a real, concurrent system, we'd want to protect this dictionary with
+    # some sort of lock. However, async/await means that the write access to
+    # [self.pending_msgs] is safe provided that we don't [await] while the
+    # dictionary is in some intermediate state. Also, dictionaries should have
+    # atomic operations when used with primitive keys, so it'd be fine anyway.
     pending_msgs: DefaultDict[MsgId, bytes]
 
     def __init__(self, reader, writer, handle):
