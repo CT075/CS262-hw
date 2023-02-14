@@ -15,55 +15,38 @@ class Client:
         self.port = port
         self.session = None
 
+    # Open connection and start jsonrpc session
     async def connect(self):
         reader, writer = await asyncio.open_connection(self.host, self.port)
         self.session = spawn_session(reader, writer)
 
-    # Log in user
-    def login(self, user: str) -> Optional[Session]:
-        # check that this user exists
-        exists = True
-        if not exists:
-            return None
-
-        # if does exist, begin Session
-
-    # Create a new account with a unique user name
-    # TODO: return type
-    def create(self, user: str):
-        # check that the user is unique
-        unique = True
-        if not unique:
-            return None
-
-        # if unique, create user
-
-    # List all accounts or subset
-    def list(self, filter) -> List[str]:
-        # retrieve and filter the accounts
-        accounts = []
-        return accounts
-
-    # Send the message to user
-    # TODO: return type
-    def send(self, msg: str, user: str):
-        # if user does not exist, return error
-        user_exists = True
-        if not user_exists:
-            raise ValueError("The user " + user + " does not exist.")
-
-        # if user logged in, deliver immediately
-        # if not logged in, queue msg and deliver on demand
-
-    # Delete an account
-    def delete(self, user: str):
-        # handle undelivered messages
-        # delete user
+    # Send login request to server
+    # TODO: this return type seems out of date
+    async def login_user(self, user: str) -> Optional[Session]:
+        params = [user]
+        result = await self.session.request("login_user", params)
+        # TODO: is the result just a server Response?
+        # could it be anything else? 
         return None
 
-    # TODO: Deliver undelivered messages to a particular user
-    def deliver_undelivered(self, user: str):
-        # check that user is logged in
-        # if not, don't do anything? or raise exception?
-        # if logged in, retrieve and deliver messages
-        return None
+    # Send a create account request to server
+    async def create_user(self, user: str):
+        params = [user]
+        result = await self.session.request("create_user", params)
+
+    # Send list accounts request to server
+    async def list_accounts(self, filter) -> List[str]:
+        params = [filter]
+        result = await self.session.request("list_accounts", params)
+        # placeholder
+        return []
+
+    # Send message send request to server
+    async def send(self, msg: str, user: str):
+        params = [msg, user]
+        result = await self.session.request("send", params)
+
+    # Send delete account request to server
+    async def delete_user(self, user: str):
+        params = [user]
+        result = await self.session.request("delete_user", params)
