@@ -84,12 +84,17 @@ class JsonRpcError(Exception):
         }
         return json.dumps(t)
 
-
+# This class formats each server response as a string,
+# according to jsonrpc format
 class Response:
+    # Each response has an ID, 
+    # data sent by server, 
+    # and an error marker
     id: Optional[RequestId]
     payload: Serializeable
     is_error: bool
 
+    # Initialize response
     def __init__(
         self, *, id: Optional[RequestId], payload: Serializeable, is_error: bool
     ):
@@ -97,11 +102,13 @@ class Response:
         self.payload = payload
         self.is_error = is_error
 
+    # Convert this response to jsonrpc format
     def serialize(self) -> str:
         t: dict[str, Any] = {
             "jsonrpc": "2.0",
             "id": self.id,
         }
+        # mark payload as error data or result data
         if self.is_error:
             t["error"] = self.payload.serialize()
         else:
@@ -109,21 +116,23 @@ class Response:
 
         return json.dumps(t)
 
-
+# TODO: what constitutes a bad request? 
+# should this be more specific or is this a catch-all?
+# is this really just about issues with method args?
 class BadRequestError(JsonRpcError):
     message = "bad request"
 
     def __init__(self, data):
         super().__init__(code=400, message=self.message, data=data)
 
-
+# Error: client request references nonexistent server-side method
 class NoSuchEndpointError(JsonRpcError):
     message = "no such method exists"
 
     def __init__(self, method):
         super().__init__(code=404, message=self.message, data=method)
 
-
+# Error: client request does not exist
 class NoSuchRequest(JsonRpcError):
     message = "received response to nonexistent request"
 
@@ -138,6 +147,7 @@ T = TypeVar("T")
 
 # XXX: This probably shouldn't live here.
 # asyncio sucks for not having this builtin
+# TODO: no idea what this is or what it's for
 class Ivar(Generic[T]):
     ev: asyncio.Event
     t: T
@@ -163,7 +173,7 @@ class Ivar(Generic[T]):
             return self.t
         return None
 
-
+# This class is a jsonrpc layer over transport session
 class Session:
     session: transport.Session
     currId: RequestId
@@ -173,36 +183,50 @@ class Session:
     pending_requests: dict[RequestId, Ivar]
     handlers: dict[str, Callable[..., Coroutine[None, None, Serializeable]]]
 
+    # Initialize session
     def __init__(self, session):
         self.currId = RequestId(0)
         self.session = session
 
+    # Helper: Run a coroutine in the background
     def run_in_background(self, coro: Coroutine[..., ..., ...]):
         task = asyncio.create_task(coro)
         self.pending_jobs.add(task)
+        # discard this task from pending jobs when done
         task.add_done_callback(self.pending_jobs.discard)
 
+    # Send an error response and catch exception
+    # TODO: is this response going from server to client? 
     async def report_error_nofail(self, error: JsonRpcError) -> None:
         resp = Response(id=None, payload=error, is_error=True)
         try:
+            # send the message
             await self.session.send(
+                # convert response to string and encode
                 resp.serialize().encode(encoding=transport.STRING_ENCODING)
             )
         except Exception:
             # in a real application, we would log here
             return
 
+    # Helper: Handle client request and send response
     async def handle_and_respond(self, req: Request) -> None:
+        # if no such requested method, send error
         if req.method not in self.handlers:
             await self.report_error_nofail(NoSuchEndpointError(req.method))
             return
         try:
+            # attempt to call method with params and get result
             result = await self.handlers[req.method](*req.params)
             success = True
         except JsonRpcError as e:
+            # if get an error, we will return this
             result = e
             success = False
 
+        # TODO: should this be checked before you handle the request?
+        # is there a request to be handled if it's a notif?
+        # or does notif just mean client does not expect a response?
         if req.is_notification():
             return
 
@@ -211,31 +235,40 @@ class Session:
         # isn't None because of the [req.is_notification] guard above, so we
         # can just satisfy the typechecker without unwrapping.
         resp = Response(id=req.id, payload=result, is_error=not success)
+        # send the message
         await self.session.send(
+            # convert response to string and encode
             resp.serialize().encode(encoding=transport.STRING_ENCODING)
         )
 
+    # This is the function server uses to handle client requests
     def handle(self, req: Request) -> None:
         self.run_in_background(self.handle_and_respond(req))
 
+    # Calculate fresh request ID for this session
     def fresh_id(self) -> RequestId:
         prev = self.currId
         self.currId = increment_requestid(self.currId)
         return prev
 
+    # This is the function client uses to send requests
     async def request(self, *, method, params, is_notification=False) -> Any:
+        # if notification, no response expected
         if is_notification:
             wait_for_resp = False
             id = None
         else:
+            # if will be expecting response, mark request as pending
             wait_for_resp = True
             id = self.fresh_id()
             result_box: Ivar[Any] = Ivar()
             self.pending_requests[id] = result_box
 
+        # create the request, convert it to string, encode, and send
         req = Request(method=method, params=params, id=id)
         await self.session.send(req.serialize().encode(transport.STRING_ENCODING))
 
+        # wait for response, read it, and delete pending request
         if wait_for_resp:
             result = await result_box.read()
             # included only to make mypy accept that [wait_for_resp] implies
@@ -244,10 +277,13 @@ class Session:
             del self.pending_requests[id]
             return result
 
+    # Loop to handle all events: client requests and server responses
     async def run_event_loop(self) -> None:
+        # use the transport session iterator to receive messages
         async for payload in self.session:
             obj = json.loads(payload)
             if isinstance(obj, dict):
+                # if there's a field for method, it's  a client request
                 if "method" in obj:
                     try:
                         req = Request(**obj)
@@ -256,6 +292,7 @@ class Session:
                         self.run_in_background(
                             self.report_error_nofail(BadRequestError(obj))
                         )
+                # if there's a field for id, it's a response to a request
                 elif "id" in obj:
                     try:
                         resp = Response(**obj)
