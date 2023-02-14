@@ -116,9 +116,7 @@ class Response:
 
         return json.dumps(t)
 
-# TODO: what constitutes a bad request? 
-# should this be more specific or is this a catch-all?
-# is this really just about issues with method args?
+# Error: the request is badly formed or cannot be handled
 class BadRequestError(JsonRpcError):
     message = "bad request"
 
@@ -292,7 +290,8 @@ class Session:
                         self.run_in_background(
                             self.report_error_nofail(BadRequestError(obj))
                         )
-                # if there's a field for id, it's a response to a request
+                # otherwise, if there's a field for id, 
+                # it's a response to a request
                 elif "id" in obj:
                     try:
                         resp = Response(**obj)
@@ -312,7 +311,7 @@ class Session:
             else:
                 self.run_in_background(self.report_error_nofail(BadRequestError(obj)))
 
-
+# create a session
 def spawn_session(reader, writer) -> Session:
     sess = transport.Session(reader, writer)
     return Session(sess)
