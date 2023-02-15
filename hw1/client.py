@@ -8,8 +8,8 @@ from fnmatch import fnmatch
 User = NewType("User", str)
 
 # Design decision: we do not need a client class,
-# because we will simply start up new clients by running the 
-# file multiple times. Since a client doesn't have much internal 
+# because we will simply start up new clients by running the
+# file multiple times. Since a client doesn't have much internal
 # state (unlike a server), there's no need for a client class.
 
 # Client keeps track of the session it has going with server
@@ -23,7 +23,7 @@ async def connect(self, host: str, port: int):
     # connect to the socket and start a session with the server
     reader, writer = await asyncio.open_connection(self.host, self.port)
     self.session = spawn_session(reader, writer)
-        
+
 
 # Send login request to server
 async def login_user(self, user: User):
@@ -31,7 +31,7 @@ async def login_user(self, user: User):
     params = [user]
     result = await self.session.request("login", params)
     # if the result is an error, print error message
-    if (result.is_error):
+    if result.is_error:
         print("Error logging in user " + user + ".\n")
     # otherwise, print that user is logged in
     # and display pending messages
@@ -51,7 +51,7 @@ async def create_user(self, user: User):
     params = [user]
     result = await self.session.request("create_user", params)
     # if server gives error, print it
-    if (result.is_error):
+    if result.is_error:
         print("Error creating user" + user + ".\n")
     # if server confirms, display success message
     elif isinstance(result.payload, Ok):
@@ -65,7 +65,7 @@ async def create_user(self, user: User):
 async def list_accounts(self, filter: str):
     result = await self.session.request("list_users", [])
     # if server gives error, print it
-    if (result.is_error):
+    if result.is_error:
         print("Error listing accounts.\n")
     # if server confirms, print the filtered account names
     elif isinstance(result.payload, UserList):
@@ -83,7 +83,7 @@ async def send(self, msg: Message, user: User):
     params = [msg, user]
     result = await self.session.request("send", params)
     # if server gives error, print it
-    if (result.is_error):
+    if result.is_error:
         print("Error sending message.\n")
     # if server confirms, display the message that was sent
     elif isinstance(result.payload, Ok):
@@ -92,12 +92,13 @@ async def send(self, msg: Message, user: User):
         # this should not happen
         print("Something went wrong. Please try again.\n")
 
+
 # Send delete account request to server
 async def delete_user(self, user: User):
     params = [user]
     result = await self.session.request("delete_user", params)
     # if server gives error, print it
-    if (result.is_error):
+    if result.is_error:
         print("Error deleting user " + user + ".\n")
     # if server confirms, display the message that was sent
     elif isinstance(result.payload, Ok):
@@ -110,7 +111,7 @@ async def delete_user(self, user: User):
 # Receive and display messages for user
 def receive_message(user: str, m: Message):
     print(m.sender + ": " + m.content + "\n")
-    
+
 
 async def setup(self):
     # listen for messages from server

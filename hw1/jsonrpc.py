@@ -194,7 +194,7 @@ class Session:
     # In python 3.11, we can use [asyncio.TaskGroup] for this. However, we will
     # do the bookkeeping ourselves for this assignment for ease of portability.
     pending_jobs: set[asyncio.Task]
-    pending_requests: dict[RequestId, Ivar]
+    pending_requests: dict[RequestId, Ivar[Response]]
     handlers: dict[str, Callable[..., Coroutine[None, None, Serializeable]]]
 
     # Initialize session
@@ -282,7 +282,7 @@ class Session:
             # if will be expecting response, mark request as pending
             wait_for_resp = True
             id = self.fresh_id()
-            result_box: Ivar[Any] = Ivar()
+            result_box: Ivar[Response] = Ivar()
             self.pending_requests[id] = result_box
 
         # create the request, convert it to string, encode, and send
@@ -317,7 +317,6 @@ class Session:
                 # it's a response to a request
                 elif "id" in obj:
                     try:
-                        # TODO: do something with this
                         resp = Response(**obj)
                     except ValueError:
                         self.run_in_background(
@@ -332,6 +331,7 @@ class Session:
                                 self.report_error_nofail(NoSuchRequest(obj))
                             )
                             continue
+                        self.pending_requests[resp.id].fill(resp)
             else:
                 self.run_in_background(self.report_error_nofail(BadRequestError(obj)))
 

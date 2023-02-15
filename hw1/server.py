@@ -1,7 +1,7 @@
 import asyncio
 import json
 from dataclasses import dataclass
-from typing import Optional, Union, Callable, NewType
+from typing import Optional, Union, Callable, NewType, Awaitable
 
 import jsonrpc
 
@@ -18,10 +18,16 @@ class Message:
     content: str
 
     def serialize(self):
-        return json.dumps({"sender": self.sender, "recipient": self.recipient, "content": self.content})
+        return json.dumps(
+            {
+                "sender": self.sender,
+                "recipient": self.recipient,
+                "content": self.content,
+            }
+        )
 
 
-# TODO: put this somewhere common
+# TODO: should this live somewhere common?
 class Ok:
     def serialize(self):
         return "ok"
@@ -37,6 +43,9 @@ class MessageList:
 
     def append(self, msg: Message):
         self.data.append(msg)
+
+    def __iter__(self):
+        return self.data.__iter__()
 
 
 @dataclass
@@ -68,6 +77,13 @@ class UserAlreadyExists(jsonrpc.JsonRpcError):
         super().__init__(code=303, message=self.message, data=s)
 
 
+class NotLoggedIn(jsonrpc.JsonRpcError):
+    message = "you must be logged in to send messages"
+
+    def __init__(self):
+        super().__init__(code=304, message=self.message, data=[])
+
+
 # This class holds the details of any particular client connection (namely, the
 # username of the user it corresponds to). We indirect [login_handler] and
 # [logout_handler] through this object because they need both connection-local
@@ -80,21 +96,36 @@ class Session:
     login_handler: Callable[["Session", User], MessageList]
     # logging out is idempotent, so [logout_handler] should not fail.
     logout_handler: Callable[[User], None]
+    message_handler: Callable[[Message], Awaitable[Ok]]
 
     def __init__(
         self,
         owner: jsonrpc.Session,
         login_handler: Callable[["Session", User], MessageList],
         logout_handler: Callable[[User], None],
+        message_handler: Callable[[Message], Awaitable[Ok]],
     ):
         self.owner = owner
         self.username = None
         self.login_handler = login_handler
         self.logout_handler = logout_handler
+        self.message_handler = message_handler
 
     async def login(self, username: User) -> MessageList:
         self.username = username
         return self.login_handler(self, username)
+
+    async def send_message(self, text: str, recipient: User) -> Ok:
+        if self.username is None:
+            raise NotLoggedIn()
+
+        return await self.message_handler(Message(self.username, recipient, text))
+
+    async def receive_message(self, msg: Message) -> Ok:
+        await self.owner.request(
+            method="receive_msg", params=[msg], is_notification=True
+        )
+        return Ok()
 
     def cleanup(self):
         if self.username is not None:
@@ -141,6 +172,22 @@ class State:
     def handle_logout(self, user: User) -> None:
         self.known_users[user] = LoggedOut(MessageList([]))
 
+    async def handle_send_message(self, msg: Message) -> Ok:
+        # Send the message to user
+        if msg.recipient not in self.known_users:
+            raise NoSuchUser(msg.recipient)
+
+        login_status = self.known_users[msg.recipient]
+
+        if isinstance(login_status, LoggedIn):
+            await login_status.session.receive_message(msg)
+        elif isinstance(login_status, LoggedOut):
+            login_status.pending_msgs.append(msg)
+        else:
+            assert False
+
+        return Ok()
+
     async def create_user(self, name: User) -> Ok:
         if name in self.known_users:
             raise UserAlreadyExists(name)
@@ -161,29 +208,20 @@ class State:
         # user didn't exist in the first place, cool.
         return Ok()
 
-    # Send the message to user
-    # TODO: return type
-    async def send_msg(self, msg: Message, user: User):
-        # if user does not exist, return error
-        user_exists = True
-        if not user_exists:
-            raise ValueError("The user " + user + " does not exist.")
-
-        # if user logged in, deliver immediately
-        # if not logged in, queue msg and deliver on demand
-
     # TODO: the difference between [session] and [user_session] is confusing,
     # come up with better names
     async def handle_incoming(self, reader, writer) -> None:
         session = jsonrpc.spawn_session(reader, writer)
-        user_session = Session(session, self.handle_login, self.handle_logout)
+        user_session = Session(
+            session, self.handle_login, self.handle_logout, self.handle_send_message
+        )
 
         # TODO: the rest of the handlers
         session.register_handler("login", user_session.login)
         session.register_handler("create_user", self.create_user)
         session.register_handler("list_users", self.list_users)
         session.register_handler("delete_user", self.delete_user)
-        session.register_handler("send", self.send_msg)
+        session.register_handler("send", user_session.send_message)
 
         await session.run_event_loop()
         user_session.cleanup()
