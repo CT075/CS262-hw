@@ -13,11 +13,12 @@ User = NewType("User", str)
 
 @dataclass
 class Message:
+    sender: User
     recipient: User
     content: str
 
     def serialize(self):
-        return json.dumps({"recipient": self.recipient, "content": self.content})
+        return json.dumps({"sender": self.sender, "recipient": self.recipient, "content": self.content})
 
 
 # TODO: put this somewhere common
@@ -162,7 +163,7 @@ class State:
 
     # Send the message to user
     # TODO: return type
-    async def send_msg(self, msg: str, user: str):
+    async def send_msg(self, msg: Message, user: User):
         # if user does not exist, return error
         user_exists = True
         if not user_exists:
@@ -182,6 +183,7 @@ class State:
         session.register_handler("create_user", self.create_user)
         session.register_handler("list_users", self.list_users)
         session.register_handler("delete_user", self.delete_user)
+        session.register_handler("send", self.send_msg)
 
         await session.run_event_loop()
         user_session.cleanup()

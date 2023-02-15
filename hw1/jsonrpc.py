@@ -217,7 +217,6 @@ class Session:
         task.add_done_callback(self.pending_jobs.discard)
 
     # Send an error response and catch exception
-    # TODO: is this response going from server to client?
     async def report_error_nofail(self, error: JsonRpcError) -> None:
         resp = Response(id=None, payload=error, is_error=True)
         try:
@@ -273,6 +272,7 @@ class Session:
         return prev
 
     # This is the function client uses to send requests
+    # TODO: return type should be response
     async def request(self, *, method, params, is_notification=False) -> Any:
         # if notification, no response expected
         if is_notification:
