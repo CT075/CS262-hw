@@ -317,6 +317,7 @@ class Session:
                 # it's a response to a request
                 elif "id" in obj:
                     try:
+                        # TODO: do something with this
                         resp = Response(**obj)
                     except ValueError:
                         self.run_in_background(
