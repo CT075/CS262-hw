@@ -49,11 +49,6 @@ socket -> wire (bytes) -> json-rpc (string) -> Server (abstract method call)
 [and then in reverse for responses]
 ```
 
-## Response types
-
-Python doesn't have a convenient type to send to signal [ok], but luckily there
-are no endpoints sending a single string, so we can repurpose the string `"ok"`.
-
 ## Testing story
 
 test components individually with a unit testing framework (stdlib `unittest`
@@ -69,3 +64,15 @@ that is called when a message is fully received.
 Decided not to because that makes the interface very annoying
 
 Instead, exposed async iterator so consumers can just write `async for message in session`.
+
+## Response types
+
+Python doesn't have a convenient type to send to signal [ok], but luckily there
+are no endpoints sending a single string, so we can repurpose the string `"ok"`.
+
+## Server state
+
+Originally planned to have `known_users: set(str)` and `pending_msgs: dict(str, list(str))`
+
+Is actually redundant, can instead keep a single dictionary mapping users to
+`LOGGED_IN of session | LOGGED_OUT of pending_messages`
