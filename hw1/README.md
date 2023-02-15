@@ -1,6 +1,10 @@
 
 # General design notes
 
+## Client architecture
+
+## Server architecture
+
 ## Protocol
 
 The RPC protocol is [JSON-RPC 2.0](https://www.jsonrpc.org/specification) over
@@ -50,8 +54,15 @@ To simplify the implementation, we also enforce the following requirements:
 
 The client and server expose the following RPC endpoints:
 
-| Modality         | Name  |
-|------------------|-------|
-| Client to server | login |
+| Modality         | Name          |
+|------------------|---------------|
+| Client to server | `login`       |
+| Client to server | `create_user` |
+| Client to server | `list_users`  |
+| Client to server | `delete_user` |
+| Client to server | `send_msg`    |
+| Server to client | `receive_msg` |
 
 The particular semantics of each procedure are detailed below.
+
+## `login`
