@@ -3,7 +3,10 @@
 #   https://www.jsonrpc.org/specification
 #
 # Simplifying differences:
-#  - The parameter list is required
+# - Requests must have a `params` field containing a list; unitary endpoints
+#   should be passed an empty list. Keyword arguments are disallowed.
+# - The `id` field will never contain a NULL value.
+# - Batch requests are disallowed.
 
 import asyncio
 import json
@@ -14,6 +17,11 @@ from typing_extensions import Protocol
 import transport
 
 
+# It is apparently well-known that mypy cannot express the type of "things that
+# can be json-serialized", so we have to write wrapper objects and define
+# [serialize] ourselves. If this were a real application with performance
+# concerns, we'd want to avoid the extra indirection by turning the typechecker
+# off at these points.
 # TODO: this should live somewhere else
 class Serializeable(Protocol):
     def serialize(self) -> str:
@@ -22,9 +30,11 @@ class Serializeable(Protocol):
 
 RequestId = NewType("RequestId", int)
 
+
 # Calculate the next request ID
 def increment_requestid(id: RequestId) -> RequestId:
     return RequestId(id + 1)
+
 
 # This class formats each client request as a string,
 # according to jsonrpc format
@@ -61,6 +71,7 @@ class Request:
     def is_notification(self) -> bool:
         return self.id is None
 
+
 # This class formats exceptions as a string,
 # according to jsonrpc format
 class JsonRpcError(Exception):
@@ -75,7 +86,7 @@ class JsonRpcError(Exception):
         self.message = message
         self.data = data
 
-    # Convert this error to jsonrpc format 
+    # Convert this error to jsonrpc format
     def serialize(self) -> str:
         t: dict[str, Any] = {
             "code": self.code,
@@ -84,11 +95,12 @@ class JsonRpcError(Exception):
         }
         return json.dumps(t)
 
+
 # This class formats each server response as a string,
 # according to jsonrpc format
 class Response:
-    # Each response has an ID, 
-    # data sent by server, 
+    # Each response has an ID,
+    # data sent by server,
     # and an error marker
     id: Optional[RequestId]
     payload: Serializeable
@@ -116,6 +128,7 @@ class Response:
 
         return json.dumps(t)
 
+
 # Error: the request is badly formed or cannot be handled
 class BadRequestError(JsonRpcError):
     message = "bad request"
@@ -123,12 +136,14 @@ class BadRequestError(JsonRpcError):
     def __init__(self, data):
         super().__init__(code=400, message=self.message, data=data)
 
+
 # Error: client request references nonexistent server-side method
 class NoSuchEndpointError(JsonRpcError):
     message = "no such method exists"
 
     def __init__(self, method):
         super().__init__(code=404, message=self.message, data=method)
+
 
 # Error: client request does not exist
 class NoSuchRequest(JsonRpcError):
@@ -171,6 +186,7 @@ class Ivar(Generic[T]):
             return self.t
         return None
 
+
 # This class is a jsonrpc layer over transport session
 class Session:
     session: transport.Session
@@ -186,6 +202,13 @@ class Session:
         self.currId = RequestId(0)
         self.session = session
 
+    def register_handler(
+        self,
+        method_name: str,
+        action: Callable[..., Coroutine[None, None, Serializeable]],
+    ):
+        self.handlers[method_name] = action
+
     # Helper: Run a coroutine in the background
     def run_in_background(self, coro: Coroutine[..., ..., ...]):
         task = asyncio.create_task(coro)
@@ -194,7 +217,7 @@ class Session:
         task.add_done_callback(self.pending_jobs.discard)
 
     # Send an error response and catch exception
-    # TODO: is this response going from server to client? 
+    # TODO: is this response going from server to client?
     async def report_error_nofail(self, error: JsonRpcError) -> None:
         resp = Response(id=None, payload=error, is_error=True)
         try:
@@ -290,7 +313,7 @@ class Session:
                         self.run_in_background(
                             self.report_error_nofail(BadRequestError(obj))
                         )
-                # otherwise, if there's a field for id, 
+                # otherwise, if there's a field for id,
                 # it's a response to a request
                 elif "id" in obj:
                     try:
@@ -310,6 +333,7 @@ class Session:
                             continue
             else:
                 self.run_in_background(self.report_error_nofail(BadRequestError(obj)))
+
 
 # create a session
 def spawn_session(reader, writer) -> Session:

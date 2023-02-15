@@ -1,6 +1,7 @@
 import asyncio
-from jsonrpc import spawn_session, Session
 from typing import Optional, List
+
+from jsonrpc import spawn_session, Session
 
 
 class Client:
@@ -26,7 +27,7 @@ class Client:
         params = [user]
         result = await self.session.request("login_user", params)
         # TODO: is the result just a server Response?
-        # could it be anything else? 
+        # could it be anything else?
         return None
 
     # Send a create account request to server

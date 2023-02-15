@@ -41,7 +41,17 @@ JSON strings are encoded via UTF-8 and sent via the above format.
 
 To simplify the implementation, we also enforce the following requirements:
 
-- Requests have a `params` field containing a list; unitary endpoints should
-  be passed an empty list. Keyword arguments are disallowed.
+- Requests must have a `params` field containing a list; unitary endpoints
+  should be passed an empty list. Keyword arguments are disallowed.
 - The `id` field will never contain a NULL value.
 - Batch requests are disallowed.
+
+# Endpoints
+
+The client and server expose the following RPC endpoints:
+
+| Modality         | Name  |
+|------------------|-------|
+| Client to server | login |
+
+The particular semantics of each procedure are detailed below.

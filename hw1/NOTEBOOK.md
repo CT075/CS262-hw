@@ -49,6 +49,11 @@ socket -> wire (bytes) -> json-rpc (string) -> Server (abstract method call)
 [and then in reverse for responses]
 ```
 
+## Response types
+
+Python doesn't have a convenient type to send to signal [ok], but luckily there
+are no endpoints sending a single string, so we can repurpose the string `"ok"`.
+
 ## Testing story
 
 test components individually with a unit testing framework (stdlib `unittest`
