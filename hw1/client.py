@@ -1,7 +1,7 @@
 import asyncio
 from typing import Optional, List, NewType
 from jsonrpc import spawn_session, Session, Response
-from server import MessageList, Ok, UserList, Message
+from server import MessageList, UserList, Message
 import jsonrpc
 from fnmatch import fnmatch
 
@@ -52,14 +52,12 @@ async def login_user(user: User):
 async def create_user(user: User):
     # send the request to server-side create_user method, with specified parameters
     params = [user]
-    print("before create\n")
-    result = await session.request(method = "create_user", params = params)
-    print("after create\n")
+    result = await session.request(method="create_user", params=params)
     # if server gives error, print it
     if result.is_error:
         print("Error creating user" + user + ".\n")
     # if server confirms, display success message
-    elif isinstance(result.payload, Ok):
+    elif result.payload == "ok":
         print("New user " + user + " created successfully.\n")
     else:
         # this should not happen
@@ -91,7 +89,7 @@ async def send(msg: Message, user: User):
     if result.is_error:
         print("Error sending message.\n")
     # if server confirms, display the message that was sent
-    elif isinstance(result.payload, Ok):
+    elif result.payload == "ok":
         print(client_user + " to " + user + ": " + msg + "\n")
     else:
         # this should not happen
@@ -117,12 +115,14 @@ async def delete_user(user: User):
 def receive_message(user: str, m: Message):
     print(m.sender + ": " + m.content + "\n")
 
+
 # Set up the event loop and handlers for requests from server
 async def setup():
     global session
     # listen for messages from server
     session.register_handler("receive_message", receive_message)
     session.run_in_background(session.run_event_loop())
+
 
 # Close the socket connection client-side
 async def close():
@@ -168,7 +168,7 @@ async def main(host: str, port: int):
     await setup()
 
     # take input from user
-    while(True):
+    while True:
         inp = input("Enter action below:\n")
         tokens = inp.split()
 
@@ -223,5 +223,5 @@ async def main(host: str, port: int):
             break
 
 
-if __name__ == '__main__':
-    asyncio.run(main('localhost', 8888))
+if __name__ == "__main__":
+    asyncio.run(main("localhost", 8888))
