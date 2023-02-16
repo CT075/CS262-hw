@@ -233,5 +233,6 @@ async def main(host: str, port: int):
     async with server:
         await server.serve_forever()
 
-if __name__ == '__main__':
-    asyncio.run(main('localhost', 8888))
+
+if __name__ == "__main__":
+    asyncio.run(main("localhost", 8888))

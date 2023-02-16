@@ -47,7 +47,7 @@ class Request:
     params: list[Serializeable]
 
     # Initialize the request
-    def __init__(self, *, method, params=[], id=None):
+    def __init__(self, *, method, params, id):
         self.method = method
         self.params = params
         self.id = id
@@ -70,6 +70,12 @@ class Request:
     # (notifications do not have IDs)
     def is_notification(self) -> bool:
         return self.id is None
+
+
+def parse_request(obj) -> Request:
+    if "method" not in obj or "params" not in obj:
+        raise ValueError
+    return Request(method=obj["method"], params=obj["params"], id=obj["id"])
 
 
 # This class formats exceptions as a string,
@@ -127,6 +133,21 @@ class Response:
             t["result"] = self.payload.serialize()
 
         return json.dumps(t)
+
+
+def parse_response(obj) -> Response:
+    if "id" not in obj:
+        raise ValueError
+
+    if "result" in obj:
+        if "error" in obj:
+            raise ValueError
+        return Response(id=obj["id"], payload=obj["result"], is_error=False)
+
+    if "error" in obj:
+        return Response(id=obj["id"], payload=obj["error"], is_error=False)
+
+    raise ValueError
 
 
 # Error: the request is badly formed or cannot be handled
@@ -190,7 +211,7 @@ class Ivar(Generic[T]):
 # This class is a jsonrpc layer over transport session
 class Session:
     session: transport.Session
-    currId: RequestId
+    curr_id: RequestId
     # In python 3.11, we can use [asyncio.TaskGroup] for this. However, we will
     # do the bookkeeping ourselves for this assignment for ease of portability.
     pending_jobs: set[asyncio.Task]
@@ -199,7 +220,7 @@ class Session:
 
     # Initialize session
     def __init__(self, session):
-        self.currId = RequestId(0)
+        self.curr_id = RequestId(0)
         self.session = session
         self.handlers = dict()
         self.pending_jobs = set()
@@ -258,6 +279,7 @@ class Session:
         # isn't None because of the [req.is_notification] guard above, so we
         # can just satisfy the typechecker without unwrapping.
         resp = Response(id=req.id, payload=result, is_error=not success)
+
         # send the message
         await self.session.send(
             # convert response to string and encode
@@ -270,8 +292,8 @@ class Session:
 
     # Calculate fresh request ID for this session
     def fresh_id(self) -> RequestId:
-        prev = self.currId
-        self.currId = increment_requestid(self.currId)
+        prev = self.curr_id
+        self.curr_id = increment_requestid(self.curr_id)
         return prev
 
     # This is the function client uses to send requests
@@ -306,12 +328,12 @@ class Session:
         async for payload in self.session:
             obj = json.loads(payload)
             if isinstance(obj, dict):
-                # if there's a field for method, it's  a client request
+                # if there's a field for method, it's a client request
                 if "method" in obj:
                     try:
-                        req = Request(**obj)
+                        req = parse_request(obj)
                         self.handle(req)
-                    except ValueError:
+                    except (ValueError, TypeError):
                         self.run_in_background(
                             self.report_error_nofail(BadRequestError(obj))
                         )
@@ -319,8 +341,8 @@ class Session:
                 # it's a response to a request
                 elif "id" in obj:
                     try:
-                        resp = Response(**obj)
-                    except ValueError:
+                        resp = parse_response(obj)
+                    except (ValueError, TypeError):
                         self.run_in_background(
                             self.report_error_nofail(BadRequestError(obj))
                         )
@@ -334,6 +356,10 @@ class Session:
                             )
                             continue
                         self.pending_requests[resp.id].fill(resp)
+                else:
+                    self.run_in_background(
+                        self.report_error_nofail(BadRequestError(obj))
+                    )
             else:
                 self.run_in_background(self.report_error_nofail(BadRequestError(obj)))
 
