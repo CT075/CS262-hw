@@ -1,7 +1,7 @@
 import asyncio
 from typing import Optional, List, NewType
-from jsonrpc import spawn_session, Session
-from server import Response, MessageList, Ok, UserList, Message
+from jsonrpc import spawn_session, Session, Response
+from server import MessageList, Ok, UserList, Message
 import jsonrpc
 from fnmatch import fnmatch
 
@@ -16,20 +16,21 @@ User = NewType("User", str)
 # and of the user that is logged in
 session: Session
 client_user: Optional[User]
+writer: asyncio.StreamWriter
 
 
 # Connect to server
-async def connect(self, host: str, port: int):
+async def connect(host: str, port: int):
     # connect to the socket and start a session with the server
-    reader, writer = await asyncio.open_connection(self.host, self.port)
-    self.session = spawn_session(reader, writer)
+    reader, writer = await asyncio.open_connection(host, port)
+    session = spawn_session(reader, writer)
 
 
 # Send login request to server
-async def login_user(self, user: User):
+async def login_user(user: User):
     # send the request to server-side login method, with specified parameters
     params = [user]
-    result = await self.session.request("login", params)
+    result = await session.request("login", params)
     # if the result is an error, print error message
     if result.is_error:
         print("Error logging in user " + user + ".\n")
@@ -46,10 +47,10 @@ async def login_user(self, user: User):
 
 
 # Send a create account request to server
-async def create_user(self, user: User):
+async def create_user(user: User):
     # send the request to server-side create_user method, with specified parameters
     params = [user]
-    result = await self.session.request("create_user", params)
+    result = await session.request("create_user", params)
     # if server gives error, print it
     if result.is_error:
         print("Error creating user" + user + ".\n")
@@ -62,8 +63,8 @@ async def create_user(self, user: User):
 
 
 # Send list accounts request to server
-async def list_accounts(self, filter: str):
-    result = await self.session.request("list_users", [])
+async def list_accounts(filter: str):
+    result = await session.request("list_users", [])
     # if server gives error, print it
     if result.is_error:
         print("Error listing accounts.\n")
@@ -79,9 +80,9 @@ async def list_accounts(self, filter: str):
 
 
 # Send message send request to server
-async def send(self, msg: Message, user: User):
+async def send(msg: Message, user: User):
     params = [msg, user]
-    result = await self.session.request("send", params)
+    result = await session.request("send", params)
     # if server gives error, print it
     if result.is_error:
         print("Error sending message.\n")
@@ -94,9 +95,9 @@ async def send(self, msg: Message, user: User):
 
 
 # Send delete account request to server
-async def delete_user(self, user: User):
+async def delete_user(user: User):
     params = [user]
-    result = await self.session.request("delete_user", params)
+    result = await session.request("delete_user", params)
     # if server gives error, print it
     if result.is_error:
         print("Error deleting user " + user + ".\n")
@@ -112,12 +113,24 @@ async def delete_user(self, user: User):
 def receive_message(user: str, m: Message):
     print(m.sender + ": " + m.content + "\n")
 
-
-async def setup(self):
+# Set up the event loop and handlers for requests from server
+async def setup():
     # listen for messages from server
-    self.session.register_handler("receive_message", self.receive_message)
-    await self.session.run_event_loop()
+    session.register_handler("receive_message", receive_message)
+    await session.run_event_loop()
+
+# Close the socket connection client-side
+async def close():
+    writer.close()
+    await writer.wait_closed()
 
 
 # in main, do the connect and setup and UI
-# TODO
+async def main(host: str, port: int):
+    print("Welcome to the chat!")
+    # # connect to server
+    # await connect(host, port)
+    # # setup the event loop and handlers
+    # await setup()
+    # print("Connected to server.")
+    # await close()
