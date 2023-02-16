@@ -32,14 +32,16 @@ async def connect(host: str, port: int):
 async def login_user(user: User):
     # send the request to server-side login method, with specified parameters
     params = [user]
-    result = await session.request("login", params)
+    result = await session.request(method = "login", params = params)
     # if the result is an error, print error message
     if result.is_error:
         print("Error logging in user " + user + ".\n")
     # otherwise, print that user is logged in
     # and display pending messages
-    elif isinstance(result.payload, MessageList):
+    elif isinstance(result.payload, list):
         print("User " + user + " is now logged in.\n")
+        global client_user
+        client_user = user
         pending = [m.sender + ": " + m.content for m in result.payload]
         for msg in pending:
             print(msg + "\n")
@@ -66,7 +68,7 @@ async def create_user(user: User):
 
 # Send list accounts request to server
 async def list_accounts(filter: str):
-    result = await session.request("list_users", [])
+    result = await session.request(method="list_users", params=[])
     # if server gives error, print it
     if result.is_error:
         print("Error listing accounts.\n")
@@ -82,9 +84,10 @@ async def list_accounts(filter: str):
 
 
 # Send message send request to server
-async def send(msg: Message, user: User):
+async def send(msg: str, user: User):
+    global client_user
     params = [msg, user]
-    result = await session.request("send", params)
+    result = await session.request(method="send", params=params)
     # if server gives error, print it
     if result.is_error:
         print("Error sending message.\n")
@@ -99,12 +102,12 @@ async def send(msg: Message, user: User):
 # Send delete account request to server
 async def delete_user(user: User):
     params = [user]
-    result = await session.request("delete_user", params)
+    result = await session.request(method="delete_user", params=params)
     # if server gives error, print it
     if result.is_error:
         print("Error deleting user " + user + ".\n")
     # if server confirms, display the message that was sent
-    elif isinstance(result.payload, Ok):
+    elif result.payload == "ok":
         print("User " + user + " successfully deleted.\n")
     else:
         # this should not happen
@@ -132,6 +135,7 @@ async def close():
 
 # in main, do the connect and setup and UI
 async def main(host: str, port: int):
+    global client_user
     print("//////////////////////////////////////////////////////////\n" +
           "//                                                      //\n" +
           "//                Welcome to the chat!                  //\n" + 
@@ -208,8 +212,7 @@ async def main(host: str, port: int):
             else:
                 u = tokens[1]
                 msgtxt = input("Please input the message below:\n")
-                msg = Message(client_user, User(u), msgtxt)
-                await send(msg, User(u))
+                await send(msgtxt, User(u))
         # delete user
         elif action == "delete":
             if len(tokens) < 2:
