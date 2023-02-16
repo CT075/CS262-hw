@@ -19,12 +19,12 @@ import transport
 
 # It is apparently well-known that mypy cannot express the type of "things that
 # can be json-serialized", so we have to write wrapper objects and define
-# [serialize] ourselves. If this were a real application with performance
+# [to_jsonable_type] ourselves. If this were a real application with performance
 # concerns, we'd want to avoid the extra indirection by turning the typechecker
 # off at these points.
 # TODO: this should live somewhere else
-class Serializeable(Protocol):
-    def serialize(self) -> str:
+class Jsonable(Protocol):
+    def to_jsonable_type(self) -> Any:
         ...
 
 
@@ -44,7 +44,7 @@ class Request:
     # and a list of parameters to that method
     id: Optional[RequestId]
     method: str
-    params: list[Serializeable]
+    params: list[Jsonable]
 
     # Initialize the request
     def __init__(self, *, method, params, id):
@@ -53,7 +53,7 @@ class Request:
         self.id = id
 
     # Convert this request to jsonrpc format
-    def serialize(self) -> str:
+    def serialize(self) -> Any:
         # first, collect the data into a dictionary
         t: dict[str, Any] = {
             "jsonrpc": "2.0",
@@ -93,13 +93,13 @@ class JsonRpcError(Exception):
         self.data = data
 
     # Convert this error to jsonrpc format
-    def serialize(self) -> str:
+    def to_jsonable_type(self) -> Any:
         t: dict[str, Any] = {
             "code": self.code,
             "message": self.message,
             "data": self.data,
         }
-        return json.dumps(t)
+        return t
 
 
 # This class formats each server response as a string,
@@ -109,13 +109,11 @@ class Response:
     # data sent by server,
     # and an error marker
     id: Optional[RequestId]
-    payload: Serializeable
+    payload: Jsonable
     is_error: bool
 
     # Initialize response
-    def __init__(
-        self, *, id: Optional[RequestId], payload: Serializeable, is_error: bool
-    ):
+    def __init__(self, *, id: Optional[RequestId], payload: Jsonable, is_error: bool):
         self.id = id
         self.payload = payload
         self.is_error = is_error
@@ -128,9 +126,9 @@ class Response:
         }
         # mark payload as error data or result data
         if self.is_error:
-            t["error"] = self.payload.serialize()
+            t["error"] = self.payload.to_jsonable_type()
         else:
-            t["result"] = self.payload.serialize()
+            t["result"] = self.payload.to_jsonable_type()
 
         return json.dumps(t)
 
@@ -216,7 +214,7 @@ class Session:
     # do the bookkeeping ourselves for this assignment for ease of portability.
     pending_jobs: set[asyncio.Task]
     pending_requests: dict[RequestId, Ivar[Response]]
-    handlers: dict[str, Callable[..., Coroutine[None, None, Serializeable]]]
+    handlers: dict[str, Callable[..., Coroutine[None, None, Jsonable]]]
 
     # Initialize session
     def __init__(self, session):
@@ -229,7 +227,7 @@ class Session:
     def register_handler(
         self,
         method_name: str,
-        action: Callable[..., Coroutine[None, None, Serializeable]],
+        action: Callable[..., Coroutine[None, None, Jsonable]],
     ):
         self.handlers[method_name] = action
 

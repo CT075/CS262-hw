@@ -1,5 +1,4 @@
 import asyncio
-import json
 from dataclasses import dataclass
 from typing import Optional, Union, Callable, NewType, Awaitable
 
@@ -17,29 +16,27 @@ class Message:
     recipient: User
     content: str
 
-    def serialize(self):
-        return json.dumps(
-            {
-                "sender": self.sender,
-                "recipient": self.recipient,
-                "content": self.content,
-            }
-        )
+    def to_jsonable_type(self):
+        return {
+            "sender": self.sender,
+            "recipient": self.recipient,
+            "content": self.content,
+        }
 
 
 # TODO: should this live somewhere common?
 class Ok:
-    def serialize(self):
+    def to_jsonable_type(self):
         return "ok"
 
 
-# See notes on [jsonrpc.Serializeable] for why these wrappers are necessary.
+# See notes on [jsonrpc.Jsonable] for why these wrappers are necessary.
 @dataclass
 class MessageList:
     data: list[Message]
 
-    def serialize(self):
-        return json.dumps([msg.serialize() for msg in self.data])
+    def to_jsonable_type(self):
+        return [msg.to_jsonable_type() for msg in self.data]
 
     def append(self, msg: Message):
         self.data.append(msg)
@@ -52,8 +49,8 @@ class MessageList:
 class UserList:
     data: list[User]
 
-    def serialize(self):
-        return json.dumps(self.data)
+    def to_jsonable_type(self):
+        return self.data
 
 
 class NoSuchUser(jsonrpc.JsonRpcError):

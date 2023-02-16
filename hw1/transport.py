@@ -22,9 +22,11 @@ STRING_ENCODING = "utf8"
 def format_header(*, size: int, id: MsgId, more: bool):
     return struct.pack(HEADER_FORMAT, size, id, more)
 
+
 # Calculate the next message ID
 def increment_msgid(id: MsgId) -> MsgId:
     return MsgId((id + 1) % MAX_ID)
+
 
 # This session class handles low-level byte transfer
 class Session(abc.AsyncIterator[bytes]):
@@ -52,7 +54,7 @@ class Session(abc.AsyncIterator[bytes]):
         self.curr_id = increment_msgid(self.curr_id)
         return prev
 
-    # Send a single message (s) in bytes 
+    # Send a single message (s) in bytes
     # by breaking down the message into packets
     # and sending each packet in order
     async def send(self, s: bytes) -> None:
@@ -73,7 +75,7 @@ class Session(abc.AsyncIterator[bytes]):
     async def recv_single(self) -> bytes:
         # loop to receive all incoming packets
         while True:
-            # for each packet, read and unpack header, then read chunk 
+            # for each packet, read and unpack header, then read chunk
             header = await self.reader.read(HEADER_SIZE)
             size, id, more = struct.unpack(HEADER_FORMAT, header)
             chunk = await self.reader.read(size)
@@ -95,5 +97,5 @@ class Session(abc.AsyncIterator[bytes]):
     async def __anext__(self) -> bytes:
         try:
             return await self.recv_single()
-        except (EOFError, asyncio.CancelledError):
+        except (EOFError, asyncio.CancelledError, struct.error):
             raise StopAsyncIteration

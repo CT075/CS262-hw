@@ -1,8 +1,6 @@
 import asyncio
-from typing import Optional, List, NewType
-from jsonrpc import spawn_session, Session, Response
-from server import MessageList, UserList, Message
-import jsonrpc
+from typing import Optional, NewType, Any
+from jsonrpc import spawn_session, Session
 from fnmatch import fnmatch
 
 User = NewType("User", str)
@@ -32,7 +30,7 @@ async def connect(host: str, port: int):
 async def login_user(user: User):
     # send the request to server-side login method, with specified parameters
     params = [user]
-    result = await session.request(method = "login", params = params)
+    result = await session.request(method="login", params=params)
     # if the result is an error, print error message
     if result.is_error:
         print("Error logging in user " + user + ".\n")
@@ -42,7 +40,8 @@ async def login_user(user: User):
         print("User " + user + " is now logged in.\n")
         global client_user
         client_user = user
-        pending = [m.sender + ": " + m.content for m in result.payload]
+        print(result.payload)
+        pending = [m["sender"] + ": " + m["content"] for m in result.payload]
         for msg in pending:
             print(msg + "\n")
     else:
@@ -73,7 +72,7 @@ async def list_accounts(filter: str):
     if result.is_error:
         print("Error listing accounts.\n")
     # if server confirms, print the filtered account names
-    elif isinstance(result.payload, UserList):
+    elif isinstance(result.payload, list):
         print("Accounts matching filter " + filter + ":\n")
         filtered = [u if fnmatch(u, filter) else "" for u in result.payload]
         for name in filtered:
@@ -115,8 +114,8 @@ async def delete_user(user: User):
 
 
 # Receive and display messages for user
-def receive_message(user: str, m: Message):
-    print(m.sender + ": " + m.content + "\n")
+def receive_message(user: str, m: dict[str, Any]):
+    print(m["sender"] + ": " + m["content"] + "\n")
 
 
 # Set up the event loop and handlers for requests from server
@@ -129,6 +128,7 @@ async def setup():
 
 # Close the socket connection client-side
 async def close():
+    global writer
     writer.close()
     await writer.wait_closed()
 
@@ -136,35 +136,36 @@ async def close():
 # in main, do the connect and setup and UI
 async def main(host: str, port: int):
     global client_user
-    print("//////////////////////////////////////////////////////////\n" +
-          "//                                                      //\n" +
-          "//                Welcome to the chat!                  //\n" + 
-          "//                                                      //\n" +
-          "//  The following actions are available to you:         //\n" +
-          "//                                                      //\n" +
-          "//  To create a new user with a unique username,        //\n" +
-          "//    type 'create' followed by the username.           //\n" +
-          "//                                                      //\n" +
-          "//  To login a user, type 'login' followed by the       //\n" +
-          "//    username.                                         //\n" +
-          "//                                                      //\n" +
-          "//  To list usernames matching a filter, type 'list'    //\n" +
-          "//    followed by a string filter where the symbol *    //\n" +
-          "//    can replace any number of symbols. For example,   //\n" +
-          "//    ca* will match cat, catherine, and cation, but    //\n" +
-          "//    not dog.                                          //\n" + 
-          "//                                                      //\n" +
-          "//  To send a message to a user, type 'send' followed   //\n" +
-          "//    by the username. This will generate another       //\n" +
-          "//    prompt where you should type your message.        //\n" + 
-          "//                                                      //\n" +
-          "//  To delete a user, type 'delete' followed by the     //\n" +
-          "//    username.                                         //\n" + 
-          "//                                                      //\n" +
-          "//            That's all! Enjoy responsibly :)          //\n" +
-          "//                                                      //\n" +
-          "//////////////////////////////////////////////////////////\n"
-          )
+    print(
+        "//////////////////////////////////////////////////////////\n"
+        "//                                                      //\n"
+        "//                Welcome to the chat!                  //\n"
+        "//                                                      //\n"
+        "//  The following actions are available to you:         //\n"
+        "//                                                      //\n"
+        "//  To create a new user with a unique username,        //\n"
+        "//    type 'create' followed by the username.           //\n"
+        "//                                                      //\n"
+        "//  To login a user, type 'login' followed by the       //\n"
+        "//    username.                                         //\n"
+        "//                                                      //\n"
+        "//  To list usernames matching a filter, type 'list'    //\n"
+        "//    followed by a string filter where the symbol *    //\n"
+        "//    can replace any number of symbols. For example,   //\n"
+        "//    ca* will match cat, catherine, and cation, but    //\n"
+        "//    not dog.                                          //\n"
+        "//                                                      //\n"
+        "//  To send a message to a user, type 'send' followed   //\n"
+        "//    by the username. This will generate another       //\n"
+        "//    prompt where you should type your message.        //\n"
+        "//                                                      //\n"
+        "//  To delete a user, type 'delete' followed by the     //\n"
+        "//    username.                                         //\n"
+        "//                                                      //\n"
+        "//            That's all! Enjoy responsibly :)          //\n"
+        "//                                                      //\n"
+        "//////////////////////////////////////////////////////////\n"
+    )
     # connect to server
     await connect(host, port)
     print("Connected to server.\n")
