@@ -132,7 +132,35 @@ async def close():
 
 # in main, do the connect and setup and UI
 async def main(host: str, port: int):
-    print("Welcome to the chat!\n")
+    print("//////////////////////////////////////////////////////////\n" +
+          "//                                                      //\n" +
+          "//                Welcome to the chat!                  //\n" + 
+          "//                                                      //\n" +
+          "//  The following actions are available to you:         //\n" +
+          "//                                                      //\n" +
+          "//  To create a new user with a unique username,        //\n" +
+          "//    type 'create' followed by the username.           //\n" +
+          "//                                                      //\n" +
+          "//  To login a user, type 'login' followed by the       //\n" +
+          "//    username.                                         //\n" +
+          "//                                                      //\n" +
+          "//  To list usernames matching a filter, type 'list'    //\n" +
+          "//    followed by a string filter where the symbol *    //\n" +
+          "//    can replace any number of symbols. For example,   //\n" +
+          "//    ca* will match cat, catherine, and cation, but    //\n" +
+          "//    not dog.                                          //\n" + 
+          "//                                                      //\n" +
+          "//  To send a message to a user, type 'send' followed   //\n" +
+          "//    by the username. This will generate another       //\n" +
+          "//    prompt where you should type your message.        //\n" + 
+          "//                                                      //\n" +
+          "//  To delete a user, type 'delete' followed by the     //\n" +
+          "//    username.                                         //\n" + 
+          "//                                                      //\n" +
+          "//            That's all! Enjoy responsibly :)          //\n" +
+          "//                                                      //\n" +
+          "//////////////////////////////////////////////////////////\n"
+          )
     # connect to server
     await connect(host, port)
     print("Connected to server.\n")
@@ -149,16 +177,50 @@ async def main(host: str, port: int):
             print("No action specified.\n")
             continue
 
-        # handle user specified actions
+        # handle user specified actions below
         action = tokens[0]
+        # creating new user
         if action == "create":
             if len(tokens) < 2:
                 print("Missing argument: username.\n")
             else:
                 u = tokens[1]
                 await create_user(User(u))
-        if action == "bye":
-            close()
+        # logging in a user
+        elif action == "login":
+            if len(tokens) < 2:
+                print("Missing argument: username.\n")
+            else:
+                u = tokens[1]
+                await login_user(User(u))
+        # listing users that match filter
+        elif action == "list":
+            if len(tokens) < 2:
+                # assume they want all accounts listed
+                await list_accounts("")
+            else:
+                filter = tokens[1]
+                await list_accounts(filter)
+        # sending a message to user
+        elif action == "send":
+            if len(tokens) < 2:
+                print("Missing argument: username.\n")
+            else:
+                u = tokens[1]
+                msgtxt = input("Please input the message below:\n")
+                msg = Message(client_user, User(u), msgtxt)
+                await send(msg, User(u))
+        # delete user
+        elif action == "delete":
+            if len(tokens) < 2:
+                print("Missing argument: username.\n")
+            else:
+                u = tokens[1]
+                await delete_user(User(u))
+        elif action == "bye":
+            await close()
+            print("Goodbye!\n")
+            break
 
 
 if __name__ == '__main__':
