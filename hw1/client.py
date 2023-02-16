@@ -21,6 +21,8 @@ writer: asyncio.StreamWriter
 
 # Connect to server
 async def connect(host: str, port: int):
+    global session
+    global writer
     # connect to the socket and start a session with the server
     reader, writer = await asyncio.open_connection(host, port)
     session = spawn_session(reader, writer)
@@ -50,7 +52,9 @@ async def login_user(user: User):
 async def create_user(user: User):
     # send the request to server-side create_user method, with specified parameters
     params = [user]
-    result = await session.request("create_user", params)
+    print("before create\n")
+    result = await session.request(method = "create_user", params = params)
+    print("after create\n")
     # if server gives error, print it
     if result.is_error:
         print("Error creating user" + user + ".\n")
@@ -115,9 +119,10 @@ def receive_message(user: str, m: Message):
 
 # Set up the event loop and handlers for requests from server
 async def setup():
+    global session
     # listen for messages from server
     session.register_handler("receive_message", receive_message)
-    await session.run_event_loop()
+    session.run_in_background(session.run_event_loop())
 
 # Close the socket connection client-side
 async def close():
@@ -127,10 +132,34 @@ async def close():
 
 # in main, do the connect and setup and UI
 async def main(host: str, port: int):
-    print("Welcome to the chat!")
-    # # connect to server
-    # await connect(host, port)
-    # # setup the event loop and handlers
-    # await setup()
-    # print("Connected to server.")
-    # await close()
+    print("Welcome to the chat!\n")
+    # connect to server
+    await connect(host, port)
+    print("Connected to server.\n")
+    # setup the event loop and handlers
+    await setup()
+
+    # take input from user
+    while(True):
+        inp = input("Enter action below:\n")
+        tokens = inp.split()
+
+        # if no action specified, loop again
+        if len(tokens) < 1:
+            print("No action specified.\n")
+            continue
+
+        # handle user specified actions
+        action = tokens[0]
+        if action == "create":
+            if len(tokens) < 2:
+                print("Missing argument: username.\n")
+            else:
+                u = tokens[1]
+                await create_user(User(u))
+        if action == "bye":
+            close()
+
+
+if __name__ == '__main__':
+    asyncio.run(main('localhost', 8888))

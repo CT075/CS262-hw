@@ -20,7 +20,7 @@ STRING_ENCODING = "utf8"
 
 # Format header data as bytes according to HEADER_FORMAT
 def format_header(*, size: int, id: MsgId, more: bool):
-    return struct.pack(HEADER_FORMAT, (size, id, more))
+    return struct.pack(HEADER_FORMAT, size, id, more)
 
 # Calculate the next message ID
 def increment_msgid(id: MsgId) -> MsgId:
@@ -41,14 +41,14 @@ class Session(abc.AsyncIterator[bytes]):
 
     # Initialize session
     def __init__(self, reader, writer):
-        self.currId = MsgId(0)
+        self.curr_id = MsgId(0)
         self.reader = reader
         self.writer = writer
         self.pending_msgs = defaultdict(bytes)
 
     # Get the next fresh message ID in this session
     def fresh_id(self) -> MsgId:
-        prev = self.currId
+        prev = self.curr_id
         self.curr_id = increment_msgid(self.curr_id)
         return prev
 

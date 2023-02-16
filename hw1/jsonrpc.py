@@ -201,6 +201,9 @@ class Session:
     def __init__(self, session):
         self.currId = RequestId(0)
         self.session = session
+        self.handlers = dict()
+        self.pending_jobs = set()
+        self.pending_requests = dict()
 
     def register_handler(
         self,
@@ -272,8 +275,7 @@ class Session:
         return prev
 
     # This is the function client uses to send requests
-    # TODO: return type should be response
-    async def request(self, *, method, params, is_notification=False) -> Any:
+    async def request(self, *, method, params, is_notification=False) -> Response:
         # if notification, no response expected
         if is_notification:
             wait_for_resp = False
