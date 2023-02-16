@@ -1,3 +1,7 @@
+# XXX: In this file, we mostly deal with raw python dictionaries instead of the
+# structured objects from [server.py]. Maybe we should introduce some
+# deserialization code in [jsonrpc.py] to fix that.
+
 import asyncio
 from typing import Optional, NewType, Any
 from jsonrpc import spawn_session, Session
