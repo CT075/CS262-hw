@@ -30,6 +30,8 @@ async def connect(host: str, port: int):
 
 # Send login request to server
 async def login_user(user: User):
+    global client_user
+    client_user = None
     # send the request to server-side login method, with specified parameters
     params = [user]
     result = await session.request(method = "login", params = params)
@@ -40,7 +42,6 @@ async def login_user(user: User):
     # and display pending messages
     elif isinstance(result.payload, list):
         print("User " + user + " is now logged in.\n")
-        global client_user
         client_user = user
         pending = [m.sender + ": " + m.content for m in result.payload]
         for msg in pending:
