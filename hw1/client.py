@@ -4,8 +4,9 @@
 
 import asyncio
 from typing import Optional, NewType, Any
-from jsonrpc import spawn_session, Session
+from jsonrpc import spawn_session, Session, JsonRpcError
 from fnmatch import fnmatch
+from server import UserAlreadyExists
 
 User = NewType("User", str)
 
@@ -61,7 +62,8 @@ async def create_user(user: User):
     result = await session.request(method="create_user", params=params)
     # if server gives error, print it
     if result.is_error:
-        print("Error creating user" + user + ".\n")
+        print("Error creating user " + user + ": " + 
+            result.payload["message"] + ".\n")
     # if server confirms, display success message
     elif result.payload == "ok":
         print("New user " + user + " created successfully.\n")

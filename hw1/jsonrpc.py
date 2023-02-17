@@ -143,7 +143,7 @@ def parse_response(obj) -> Response:
         return Response(id=obj["id"], payload=obj["result"], is_error=False)
 
     if "error" in obj:
-        return Response(id=obj["id"], payload=obj["error"], is_error=False)
+        return Response(id=obj["id"], payload=obj["error"], is_error=True)
 
     raise ValueError
 
