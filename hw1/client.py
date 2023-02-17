@@ -77,7 +77,8 @@ async def list_accounts(filter: str):
     result = await session.request(method="list_users", params=[])
     # if server gives error, print it
     if result.is_error:
-        print("Error listing accounts.\n")
+        print("Error listing accounts: " + 
+            result.payload["message"] + ".\n")
     # if server confirms, print the filtered account names
     elif isinstance(result.payload, list):
         lst = result.payload
