@@ -120,7 +120,7 @@ class Session:
 
     async def receive_message(self, msg: Message) -> Ok:
         await self.owner.request(
-            method="receive_message", params=[msg], is_notification=True
+            method="receive_message", params=[msg.to_jsonable_type()], is_notification=True
         )
         return Ok()
 
