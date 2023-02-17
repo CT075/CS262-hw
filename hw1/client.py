@@ -80,10 +80,16 @@ async def list_accounts(filter: str):
         print("Error listing accounts.\n")
     # if server confirms, print the filtered account names
     elif isinstance(result.payload, list):
-        print("Accounts matching filter " + filter + ":\n")
-        filtered = [u if fnmatch(u, filter) else "" for u in result.payload]
-        for name in filtered:
-            print(name + "\n")
+        lst = result.payload
+        filtered = [u if fnmatch(u, filter) else "" for u in lst]
+        while "" in filtered:
+            filtered.remove("")
+        if len(filtered) == 0:
+            print("No accounts matching this filter.")
+        else:
+            print("Accounts matching filter " + filter + ":")
+            for name in filtered:
+                print(name)
     else:
         # this should not happen
         print("Something went wrong. Please try again.\n")
@@ -191,6 +197,9 @@ async def main(host: str, port: int):
 
         # handle user specified actions below
         action = tokens[0]
+        if len(tokens) > 2:
+            print("Too many arguments specified.\n")
+            continue
         # creating new user
         if action == "create":
             if len(tokens) < 2:
@@ -209,10 +218,11 @@ async def main(host: str, port: int):
         elif action == "list":
             if len(tokens) < 2:
                 # assume they want all accounts listed
-                await list_accounts("")
+                await list_accounts("*")
             else:
                 filter = tokens[1]
                 await list_accounts(filter)
+            print("\n")
         # sending a message to user
         elif action == "send":
             if len(tokens) < 2:
