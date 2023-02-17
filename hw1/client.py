@@ -4,9 +4,9 @@
 
 import asyncio
 from typing import Optional, NewType, Any
-from jsonrpc import spawn_session, Session, JsonRpcError
+from jsonrpc import spawn_session, Session
 from fnmatch import fnmatch
-from server import UserAlreadyExists
+from server import Message
 
 User = NewType("User", str)
 
@@ -107,7 +107,7 @@ async def send(msg: str, user: User):
     result = await session.request(method="send", params=params)
     # if server gives error, print it
     if result.is_error:
-        print("Error sending message.\n")
+        print("Error sending message: " + result.payload["message"] + ".\n")
     # if server confirms, display the message that was sent
     elif result.payload == "ok":
         print(client_user + " to " + user + ": " + msg + "\n")
@@ -122,7 +122,7 @@ async def delete_user(user: User):
     result = await session.request(method="delete_user", params=params)
     # if server gives error, print it
     if result.is_error:
-        print("Error deleting user " + user + ".\n")
+        print("Error deleting user " + user + ": " + result.payload["message"] + ".\n")
     # if server confirms, display the message that was sent
     elif result.payload == "ok":
         print("User " + user + " successfully deleted.\n")
