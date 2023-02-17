@@ -18,7 +18,7 @@ User = NewType("User", str)
 # Client keeps track of the session it has going with server
 # and of the user that is logged in
 session: Session
-client_user: Optional[User]
+client_user: Optional[User] = None
 writer: asyncio.StreamWriter
 
 
@@ -34,22 +34,28 @@ async def connect(host: str, port: int):
 # Send login request to server
 async def login_user(user: User):
     global client_user
-    client_user = None
+    if client_user != None:
+        print("Cannot login more than one user.\n")
+        return
+    
     # send the request to server-side login method, with specified parameters
     params = [user]
     result = await session.request(method="login", params=params)
     # if the result is an error, print error message
     if result.is_error:
-        print("Error logging in user " + user + ".\n")
+        print("Error logging in user " + user + ": " + result.payload["message"] + ".\n")
     # otherwise, print that user is logged in
     # and display pending messages
     elif isinstance(result.payload, list):
         print("User " + user + " is now logged in.\n")
         client_user = user
-        print(result.payload)
         pending = [m["sender"] + ": " + m["content"] for m in result.payload]
-        for msg in pending:
-            print(msg + "\n")
+        if len(pending) == 0:
+            print("You have no messages.\n")
+        else:
+            print("You have the following messages:\n")
+            for msg in pending:
+                print(msg + "\n")
     else:
         # this should not happen
         print("Cannot display pending messages.\n")
@@ -76,8 +82,7 @@ async def list_accounts(filter: str):
     result = await session.request(method="list_users", params=[])
     # if server gives error, print it
     if result.is_error:
-        print("Error listing accounts: " + 
-            result.payload["message"] + ".\n")
+        print("Error listing accounts: " + result.payload["message"] + ".\n")
     # if server confirms, print the filtered account names
     elif isinstance(result.payload, list):
         lst = result.payload
@@ -187,7 +192,7 @@ async def main(host: str, port: int):
 
     # take input from user
     while True:
-        inp = input("Enter action below:\n")
+        inp = input(">>>  ")
         tokens = inp.split()
 
         # if no action specified, loop again
