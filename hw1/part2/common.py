@@ -1,6 +1,13 @@
 from chat_pb2 import Error
 
+# We can't inherit from [Error] directly because protobuf sucks
+class UserError(Exception):
+    code: int
+    msg: str
 
-class UserError(Error, Exception):
-    def __init__(self, *, code, message):
-        Error.__init__(self, code=code, msg=message)
+    def __init__(self, *, code, msg):
+        self.code = code
+        self.msg = msg
+
+    def into(self) -> Error:
+        return Error(code=self.code, msg=self.msg)

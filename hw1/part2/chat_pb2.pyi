@@ -13,21 +13,15 @@ class Error(_message.Message):
     msg: str
     def __init__(self, code: _Optional[int] = ..., msg: _Optional[str] = ...) -> None: ...
 
-class LoginRequest(_message.Message):
-    __slots__ = ["tok", "user"]
-    TOK_FIELD_NUMBER: _ClassVar[int]
-    USER_FIELD_NUMBER: _ClassVar[int]
-    tok: SessionToken
-    user: User
-    def __init__(self, user: _Optional[_Union[User, _Mapping]] = ..., tok: _Optional[_Union[SessionToken, _Mapping]] = ...) -> None: ...
-
 class Msg(_message.Message):
-    __slots__ = ["sender", "text"]
+    __slots__ = ["recipient", "sender", "text"]
+    RECIPIENT_FIELD_NUMBER: _ClassVar[int]
     SENDER_FIELD_NUMBER: _ClassVar[int]
     TEXT_FIELD_NUMBER: _ClassVar[int]
+    recipient: User
     sender: User
     text: str
-    def __init__(self, text: _Optional[str] = ..., sender: _Optional[_Union[User, _Mapping]] = ...) -> None: ...
+    def __init__(self, text: _Optional[str] = ..., sender: _Optional[_Union[User, _Mapping]] = ..., recipient: _Optional[_Union[User, _Mapping]] = ...) -> None: ...
 
 class Ok(_message.Message):
     __slots__ = []

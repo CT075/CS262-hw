@@ -31,7 +31,10 @@ message Error {
 
 message Msg {
   string text = 1;
+  // We _could_ have two separate types for incoming vs outgoing messages, but
+  // that is bothersome
   User sender = 2;
+  User recipient = 3;
 }
 
 message SendRequest {
