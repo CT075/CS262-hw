@@ -250,4 +250,4 @@ async def main(host: str, port: int):
 
 
 if __name__ == "__main__":
-    asyncio.run(main("localhost", 8888))
+    asyncio.run(main("10.250.159.96", 8888))

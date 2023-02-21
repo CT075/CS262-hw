@@ -2,12 +2,17 @@ import unittest
 import asyncio
 from server import State, UserAlreadyExists, UserList, User, MessageList, LoggedIn, NoSuchUser, AlreadyLoggedIn, LoggedOut, Message
 import jsonrpc
+import client
+import warnings
+from contextlib import redirect_stdout
+import io
 
 #python3 -m unittest testing.py
 
 class TestChat(unittest.IsolatedAsyncioTestCase):
 
     async def setup(self):
+        warnings.simplefilter('ignore', category=ResourceWarning)
         state = State()
         serv = await asyncio.start_server(state.handle_incoming, 'localhost', 8888)
         return (state, serv)
@@ -181,6 +186,23 @@ class TestChat(unittest.IsolatedAsyncioTestCase):
         serv.close()
         await serv.wait_closed()
 
+    async def test_create_delete_list(self):
+        state, serv = await self.setup()
+        
+        ok = await state.create_user("ana")
+        self.assertEqual(ok.to_jsonable_type(), "ok")
+        self.assertTrue("ana" in state.known_users)
+        
+        okdel = await state.delete_user("ana")
+        self.assertEqual(okdel.to_jsonable_type(), "ok")
+        self.assertTrue("ana" not in state.known_users)
+
+        lst = await state.list_users()
+        self.assertEqual(lst, UserList(data=[]))
+        
+        serv.close()
+        await serv.wait_closed()
+
 
     ### USER DELETION
 
@@ -244,22 +266,44 @@ class TestChat(unittest.IsolatedAsyncioTestCase):
         await serv.wait_closed()
 
 
-    ### FUN COMBINATIONS
-    async def test_create_delete_list(self):
-        state, serv = await self.setup()
-        
-        ok = await state.create_user("ana")
-        self.assertEqual(ok.to_jsonable_type(), "ok")
-        self.assertTrue("ana" in state.known_users)
-        
-        okdel = await state.delete_user("ana")
-        self.assertEqual(okdel.to_jsonable_type(), "ok")
-        self.assertTrue("ana" not in state.known_users)
+    ################## TESTING CLIENT ##################
 
-        lst = await state.list_users()
-        self.assertEqual(lst, UserList(data=[]))
-        
+    ### CONNECT AND SETUP
+
+    async def setup_client(self):
+        # setup client
+        await client.connect('localhost', 8888)
+        await client.setup()
+
+
+    async def test_client_connect_setup(self):
+        # setup server
+        state, serv = await self.setup()
+        await self.setup_client()
+
+        self.assertNotEqual(client.session, None)
+        self.assertEqual(client.client_user, None)
+
+        await client.close()
         serv.close()
         await serv.wait_closed()
 
-    ################## TESTING CLIENT ##################
+    ### CREATE USER
+
+    async def test_client_create_user(self):
+        
+        # setup server
+        state, serv = await self.setup()
+        await self.setup_client()
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            await client.create_user("ana")
+        self.assertIn("successfully", buf.getvalue())
+        
+        await client.close()
+        serv.close()
+        await serv.wait_closed()
+
+    
+

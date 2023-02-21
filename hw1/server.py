@@ -148,7 +148,7 @@ class State:
 
     def __init__(self):
         self.known_users = dict()
-        self.sessions = set()
+        self.sessions = set() #TODO: is this needed?
 
     def handle_login(self, session: Session, user: User) -> MessageList:
         if user not in self.known_users:
@@ -213,7 +213,6 @@ class State:
             session, self.handle_login, self.handle_logout, self.handle_send_message
         )
 
-        # TODO: the rest of the handlers
         session.register_handler("login", user_session.login)
         session.register_handler("create_user", self.create_user)
         session.register_handler("list_users", self.list_users)
