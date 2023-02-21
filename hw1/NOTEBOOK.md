@@ -76,3 +76,16 @@ Originally planned to have `known_users: set(str)` and `pending_msgs: dict(str, 
 
 Is actually redundant, can instead keep a single dictionary mapping users to
 `LOGGED_IN of session | LOGGED_OUT of pending_messages`
+
+## gRPC
+
+gRPC's model is different from ours, so it will take nontrivial re-architecting
+to handle the new style of session management
+
+thoughts: Protobuffers aren't expressive enough to slot into the existing
+design; it feels like we are engineering around gRPC implementation details
+rather than naturally designing a system from the ground up (see: session
+management)
+
+Returning structured errors is difficult with protobuf because it's hard to
+attach arbitrary data as a field, so the server must do formatting instead

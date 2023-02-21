@@ -6,8 +6,8 @@ from typing import NewType, DefaultDict
 MsgId = NewType("MsgId", int)
 
 # 4 bytes
-MAX_MSG_SIZE = 2 << 32 - 1
-MAX_ID = 2 << 32
+MAX_MSG_SIZE = 1 << 32 - 1
+MAX_ID = 1 << 32
 
 # > = big endian
 # l = 4 bytes (size)

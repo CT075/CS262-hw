@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+service ChatSession {
+  // See [README.md] for a high-level description of these endpoints.
+  rpc Create(User) returns (OkOrError) {}
+  rpc ListUsers(Ok) returns (UserList) {}
+  rpc DeleteUser(User) returns (Ok) {}
+
+  // GRPC doesn't allow for the same kind of session management as our
+  // homegrown [jsonrpc] infra, so we need to have some restrictions.
+  rpc Login(User) returns (SessionTokenOrError) {}
+  rpc IncomingMsgs(SessionToken) returns (stream Msg) {}
+  rpc SendMsg(SendRequest) returns (OkOrError) {}
+}
+
+// The client must not create this directly.
+message SessionToken {
+  int32 tok = 1;
+}
+
+message Ok {}
+
+message User {
+  string handle = 1;
+}
+
+message Error {
+  int32 code = 1;
+  string msg = 2;
+}
+
+message Msg {
+  string text = 1;
+  User sender = 2;
+}
+
+message SendRequest {
+  Msg msg = 1;
+  SessionToken tok = 2;
+}
+
+// protobuf doesn't have generics...
+
+message OkOrError {
+  oneof payload {
+    Ok ok = 1;
+    Error err = 2;
+  }
+}
+
+message SessionTokenOrError {
+  oneof payload {
+    SessionToken ok = 1;
+    Error err = 2;
+  }
+}
+
+message UserList {
+  repeated User users = 1;
+}

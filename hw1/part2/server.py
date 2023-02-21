@@ -1,10 +1,35 @@
-import asyncio
+# Unfortunately, mypy doesn't play nicely with protobuf at all
+
 from dataclasses import dataclass
-from typing import Optional, Union, Callable, NewType, Awaitable
+from typing import Optional, Union
+from collections.abc import Coroutine
+from asyncio import Queue
 
-import jsonrpc
+from common import UserError
 
-User = NewType("User", str)
+import chat_pb2
+from chat_pb2 import (
+    Ok,
+    OkOrError,
+    UserList,
+    Msg,
+    SessionTokenOrError,
+)
+from chat_pb2_grpc import ChatSessionServicer
+
+MAX_TOKEN = 1 << 32
+
+# This is an awful, awful hack that is necessary because protobuf-generated
+# types aren't hashable.
+class User(chat_pb2.User):
+    def __hash__(self):
+        return hash(self.handle)
+
+
+class SessionToken(chat_pb2.SessionToken):
+    def __hash__(self):
+        return hash(self.tok)
+
 
 # In a real app, we'd use a database, but for this app, we'll use in-memory
 # structures for logins, messages, etc.
@@ -24,12 +49,6 @@ class Message:
         }
 
 
-# TODO: should this live somewhere common?
-class Ok:
-    def to_jsonable_type(self):
-        return "ok"
-
-
 # See notes on [jsonrpc.Jsonable] for why these wrappers are necessary.
 @dataclass
 class MessageList:
@@ -45,72 +64,44 @@ class MessageList:
         return self.data.__iter__()
 
 
-@dataclass
-class UserList:
-    data: list[User]
-
-    def to_jsonable_type(self):
-        return self.data
-
-
-class NoSuchUser(jsonrpc.JsonRpcError):
-    message = "no such user"
+class NoSuchUser(UserError):
+    message = "no such user: %s"
 
     def __init__(self, s):
-        super().__init__(code=301, message=self.message, data=s)
+        super().__init__(code=301, msg=(self.message % s))
 
 
-class AlreadyLoggedIn(jsonrpc.JsonRpcError):
-    message = "user is already logged in"
-
-    def __init__(self, s):
-        super().__init__(code=302, message=self.message, data=s)
-
-
-class UserAlreadyExists(jsonrpc.JsonRpcError):
-    message = "user already exists"
+class AlreadyLoggedIn(UserError):
+    message = "user %s is already logged in"
 
     def __init__(self, s):
-        super().__init__(code=303, message=self.message, data=s)
+        super().__init__(code=302, msg=(self.message % s))
 
 
-class NotLoggedIn(jsonrpc.JsonRpcError):
+class UserAlreadyExists(UserError):
+    message = "user %s already exists"
+
+    def __init__(self, s):
+        super().__init__(code=303, msg=(self.message % s))
+
+
+class NotLoggedIn:
     message = "you must be logged in to send messages"
 
     def __init__(self):
-        super().__init__(code=304, message=self.message, data=[])
+        super().__init__(code=304, msg=self.message)
 
 
 # This class holds the details of any particular client connection (namely, the
-# username of the user it corresponds to). We indirect [login_handler] and
-# [logout_handler] through this object because they need both connection-local
-# state (e.g. "set/get the currently-logged-in user) and global state (the
-# overall user database).
+# username of the user it corresponds to).
+
+
 class Session:
-    owner: jsonrpc.Session
-    username: Optional[User]
-    # [login_handler] will raise one of the above exceptions on failure.
-    login_handler: Callable[["Session", User], MessageList]
-    # logging out is idempotent, so [logout_handler] should not fail.
-    logout_handler: Callable[[User], None]
-    message_handler: Callable[[Message], Awaitable[Ok]]
+    username: User
+    pending_msgs: Queue[Msg]
 
-    def __init__(
-        self,
-        owner: jsonrpc.Session,
-        login_handler: Callable[["Session", User], MessageList],
-        logout_handler: Callable[[User], None],
-        message_handler: Callable[[Message], Awaitable[Ok]],
-    ):
-        self.owner = owner
-        self.username = None
-        self.login_handler = login_handler
-        self.logout_handler = logout_handler
-        self.message_handler = message_handler
-
-    async def login(self, username: User) -> MessageList:
+    def __init__(self, username: User):
         self.username = username
-        return self.login_handler(self, username)
 
     async def send_message(self, text: str, recipient: User) -> Ok:
         if self.username is None:
@@ -125,6 +116,15 @@ class Session:
             is_notification=True,
         )
         return Ok()
+
+    async def __aiter__(self):
+        return self
+
+    async def __anext__(self) -> Msg:
+        return await self.pending_msgs.get()
+
+    async def receive_msg(self, text: str, sender: User) -> None:
+        await self.pending_msgs.put(Msg(text=text, sender=sender))
 
     def cleanup(self):
         if self.username is not None:
@@ -141,17 +141,28 @@ class LoggedOut:
     pending_msgs: MessageList
 
 
-# We can avoid locks here due to the guarantees of async-await programming.
-# In particular, job interleaving can only happen across an [await] boundary,
-# so as long as we do all our modifications of [known_users] in one "breath",
-# there should be no issues with another thread seeing an intermediate state.
-class State:
+class State(ChatSessionServicer):
+    curr_tok: SessionToken
+    sessions: dict[SessionToken, Optional[Session]]
     known_users: dict[User, Union[LoggedIn, LoggedOut]]
 
     def __init__(self):
+        self.curr_tok = SessionToken(tok=0)
         self.known_users = dict()
 
-    def handle_login(self, session: Session, user: User) -> MessageList:
+    # XXX: In a real application, we'd use a dedicated session token generator
+    # instead of simply incrementing a counter..
+    def fresh_token(self) -> SessionToken:
+        prev = self.curr_tok
+        self.curr_tok = SessionToken(tok=(prev.tok + 1 % MAX_TOKEN))
+        return prev
+
+    def initialize_session(self) -> SessionToken:
+        tok = self.fresh_token()
+        self.sessions[tok] = None
+        return tok
+
+    async def handle_login(self, user: User) -> SessionToken:
         if user not in self.known_users:
             raise NoSuchUser(user)
 
@@ -163,9 +174,13 @@ class State:
         assert isinstance(login_status, LoggedOut)
         pending_msgs = login_status.pending_msgs
 
+        tok = self.fresh_token()
+        session = Session(user)
+        self.sessions[tok] = session
+
         self.known_users[user] = LoggedIn(session)
 
-        return pending_msgs
+        return tok
 
     def handle_logout(self, user: User) -> None:
         self.known_users[user] = LoggedOut(MessageList([]))
@@ -186,18 +201,15 @@ class State:
 
         return Ok()
 
-    async def create_user(self, name: User) -> Ok:
-        if name in self.known_users:
-            raise UserAlreadyExists(name)
+    def create_user(self, user: User) -> Ok:
+        if user in self.known_users:
+            raise UserAlreadyExists(user)
 
-        self.known_users[name] = LoggedOut(MessageList([]))
+        self.known_users[user] = LoggedOut(MessageList([]))
 
         return Ok()
 
-    async def list_users(self, *args) -> UserList:
-        return UserList(list(self.known_users.keys()))
-
-    async def delete_user(self, user: User) -> Ok:
+    def delete_user(self, user: User) -> Ok:
         if user in self.known_users:
             del self.known_users[user]
 
@@ -205,6 +217,25 @@ class State:
         # a server state in which the desired user no longer exists, so if that
         # user didn't exist in the first place, cool.
         return Ok()
+
+    async def Create(self, req, _ctx) -> OkOrError:
+        try:
+            # See the comment above [User].
+            req.__class__ = User
+            return OkOrError(ok=self.create_user(req))
+        except UserError as e:
+            return OkOrError(err=e)
+
+    async def ListUsers(self, _req, _ctx) -> UserList:
+        return UserList(users=list(self.known_users.keys()))
+
+    async def DeleteUser(self, req, _ctx) -> Ok:
+        req.__class__ = User
+        return self.delete_user(req)
+
+    async def Login(self, req, _ctx) -> SessionTokenOrError:
+        # TODO
+        pass
 
     # TODO: the difference between [session] and [user_session] is confusing,
     # come up with better names
