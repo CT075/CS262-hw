@@ -37,13 +37,15 @@ async def login_user(user: User):
     if client_user != None:
         print("Cannot login more than one user.\n")
         return
-    
+
     # send the request to server-side login method, with specified parameters
     params = [user]
     result = await session.request(method="login", params=params)
     # if the result is an error, print error message
     if result.is_error:
-        print("Error logging in user " + user + ": " + result.payload["message"] + ".\n")
+        print(
+            "Error logging in user " + user + ": " + result.payload["message"] + ".\n"
+        )
     # otherwise, print that user is logged in
     # and display pending messages
     elif isinstance(result.payload, list):

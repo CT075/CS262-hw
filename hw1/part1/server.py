@@ -120,7 +120,9 @@ class Session:
 
     async def receive_message(self, msg: Message) -> Ok:
         await self.owner.request(
-            method="receive_message", params=[msg.to_jsonable_type()], is_notification=True
+            method="receive_message",
+            params=[msg.to_jsonable_type()],
+            is_notification=True,
         )
         return Ok()
 
@@ -232,4 +234,4 @@ async def main(host: str, port: int):
 
 
 if __name__ == "__main__":
-    asyncio.run(main("localhost", 8888))
+    asyncio.run(main("10.250.159.96", 8888))
