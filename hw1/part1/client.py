@@ -148,7 +148,9 @@ async def setup():
 
 # Close the socket connection client-side
 async def close():
-    global writer
+    global writer, session, client_user
+    session = None
+    client_user = None
     writer.close()
     await writer.wait_closed()
 
