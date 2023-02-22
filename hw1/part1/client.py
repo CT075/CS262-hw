@@ -135,7 +135,7 @@ async def delete_user(user: User):
 
 
 # Receive and display messages for user
-def receive_message(m: dict[str, Any]):
+async def receive_message(m: dict[str, Any]):
     print(m["sender"] + ": " + m["content"] + "\n")
 
 
@@ -197,7 +197,7 @@ async def main(host: str, port: int):
 
     # take input from user
     while True:
-        #inp = input(">>>  ")
+        # inp = input(">>>  ")
         inp = await aioconsole.ainput(">>>  ")
         tokens = inp.split()
 
@@ -241,7 +241,7 @@ async def main(host: str, port: int):
             else:
                 u = tokens[1]
                 msgtxt = await aioconsole.ainput("Please input the message below:\n")
-                #msgtxt = input("Please input the message below:\n")
+                # msgtxt = input("Please input the message below:\n")
                 await send(msgtxt, User(u))
         # delete user
         elif action == "delete":
