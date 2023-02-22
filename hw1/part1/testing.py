@@ -511,5 +511,3 @@ class TestChat(unittest.IsolatedAsyncioTestCase):
         await client.close()
         serv.close()
         await serv.wait_closed()
-    
-
