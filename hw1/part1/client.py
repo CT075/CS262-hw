@@ -134,7 +134,7 @@ async def delete_user(user: User):
 
 
 # Receive and display messages for user
-def receive_message(user: str, m: dict[str, Any]):
+def receive_message(m: dict[str, Any]):
     print(m["sender"] + ": " + m["content"] + "\n")
 
 
