@@ -169,7 +169,7 @@ async def main(host: str, port: int) -> None:
         "//////////////////////////////////////////////////////////\n"
     )
     # connect to server
-    await connect(host, port)
+    connect(host, port)
     print("Connected to server.\n")
 
     # take await ainput from user
