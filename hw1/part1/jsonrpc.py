@@ -75,7 +75,11 @@ class Request:
 def parse_request(obj) -> Request:
     if "method" not in obj or "params" not in obj:
         raise ValueError
-    return Request(method=obj["method"], params=obj["params"], id=obj["id"])
+    if "id" in obj:
+        id = obj["id"]
+    else:
+        id = None
+    return Request(method=obj["method"], params=obj["params"], id=id)
 
 
 # This class formats exceptions as a string,
