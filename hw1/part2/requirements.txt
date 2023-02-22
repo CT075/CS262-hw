@@ -1,0 +1,5 @@
+aioconsole==0.6.0
+grpcio==1.51.1
+grpcio-tools==1.51.1
+protobuf==4.22.0
+types-protobuf==4.21.0.7
