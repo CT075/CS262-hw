@@ -36,12 +36,12 @@ def increment_requestid(id: RequestId) -> RequestId:
     return RequestId(id + 1)
 
 
-# This class formats each client request as a string,
-# according to jsonrpc format
+# JSON-RPC 2.0 Request schema
 class Request:
-    # Each request has an id,
-    # a server-side method it is referencing,
-    # and a list of parameters to that method
+    # Each request has:
+    # - id,
+    # - a server-side method it is referencing
+    # - a list of parameters to that method
     id: Optional[RequestId]
     method: str
     params: list[Jsonable]
@@ -75,13 +75,16 @@ class Request:
 def parse_request(obj) -> Request:
     if "method" not in obj or "params" not in obj:
         raise ValueError
-    return Request(method=obj["method"], params=obj["params"], id=obj["id"])
+    if "id" in obj:
+        id = obj["id"]
+    else:
+        id = None
+    return Request(method=obj["method"], params=obj["params"], id=id)
 
 
-# This class formats exceptions as a string,
-# according to jsonrpc format
+# All errors that can be reported across the network should inherit from this
+# class.
 class JsonRpcError(Exception):
-    # TODO: Each error has a code ...
     code: int
     message: str
     data: Any
@@ -102,12 +105,12 @@ class JsonRpcError(Exception):
         return t
 
 
-# This class formats each server response as a string,
-# according to jsonrpc format
+# JSON-RPC 2.0 Response schema
 class Response:
-    # Each response has an ID,
-    # data sent by server,
-    # and an error marker
+    # Each response has:
+    # - ID
+    # - data sent by server
+    # - error marker
     id: Optional[RequestId]
     payload: Jsonable
     is_error: bool
@@ -177,9 +180,11 @@ class NoSuchRequest(JsonRpcError):
 T = TypeVar("T")
 
 
+# An [Ivar] is a write-once, concurrent [ref]. Initially, when an ivar is
+# created it is "empty", and attempting to [read] from it will block until it
+# is [fill]ed from another job.
 # XXX: This probably shouldn't live here.
 # asyncio sucks for not having this builtin
-# TODO: no idea what this is or what it's for
 class Ivar(Generic[T]):
     ev: asyncio.Event
     t: T
@@ -266,9 +271,7 @@ class Session:
             result = e
             success = False
 
-        # TODO: should this be checked before you handle the request?
-        # is there a request to be handled if it's a notif?
-        # or does notif just mean client does not expect a response?
+        # Notifications do not expect a response
         if req.is_notification():
             return
 

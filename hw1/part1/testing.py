@@ -300,10 +300,214 @@ class TestChat(unittest.IsolatedAsyncioTestCase):
         with redirect_stdout(buf):
             await client.create_user("ana")
         self.assertIn("successfully", buf.getvalue())
+
+        buf.close()
+        
+        await client.close()
+        serv.close()
+        await serv.wait_closed()
+    
+    async def test_client_create_multiple(self):
+        
+        # setup server
+        state, serv = await self.setup()
+        await self.setup_client()
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            await client.create_user("ana")
+        self.assertIn("successfully", buf.getvalue())
+
+        # creating multiple users
+        buf.truncate(0)
+        with redirect_stdout(buf):
+            await client.create_user("cam")
+        self.assertIn("successfully", buf.getvalue())
+
+        buf.close()
         
         await client.close()
         serv.close()
         await serv.wait_closed()
 
-    
+    async def test_client_create_existing(self):
+        
+        # setup server
+        state, serv = await self.setup()
+        await self.setup_client()
 
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            await client.create_user("ana")
+        self.assertIn("successfully", buf.getvalue())
+
+        # already existing user
+        buf.truncate(0)
+        with redirect_stdout(buf):
+            await client.create_user("ana")
+        self.assertIn("Error", buf.getvalue())
+
+        buf.close()
+        
+        await client.close()
+        serv.close()
+        await serv.wait_closed()
+
+    ### LOGIN USER
+
+    async def test_client_login_user(self):
+        
+        # setup server
+        state, serv = await self.setup()
+        await self.setup_client()
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            await client.create_user("ana")
+
+        buf.truncate(0)
+        with redirect_stdout(buf):
+            await client.login_user("ana")
+        self.assertIn("logged in", buf.getvalue())
+        
+        buf.close()
+
+        await client.close()
+        serv.close()
+        await serv.wait_closed()
+
+    async def test_client_login_nonexisting(self):
+        
+        # setup server
+        state, serv = await self.setup()
+        await self.setup_client()
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            await client.login_user("ana")
+        self.assertIn("Error", buf.getvalue())
+        
+        buf.close()
+        
+        await client.close()
+        serv.close()
+        await serv.wait_closed()
+
+    ### LIST USERS
+
+    async def test_client_list_users(self):
+        
+        # setup server
+        state, serv = await self.setup()
+        await self.setup_client()
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            await client.create_user("ana")
+            await client.create_user("cam")
+            await client.create_user("cat")
+
+        buf.truncate(0)
+        with redirect_stdout(buf):
+            await client.list_accounts("ca*")
+        self.assertIn("cat", buf.getvalue())
+        self.assertIn("cam", buf.getvalue())
+        self.assertNotIn("ana", buf.getvalue())
+
+        buf.close()
+
+        await client.close()
+        serv.close()
+        await serv.wait_closed()
+
+    async def test_client_list_all(self):
+        
+        # setup server
+        state, serv = await self.setup()
+        await self.setup_client()
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            await client.create_user("ana")
+            await client.create_user("cam")
+            await client.create_user("cat")
+
+        buf.truncate(0)
+        with redirect_stdout(buf):
+            await client.list_accounts("*")
+        self.assertIn("cat", buf.getvalue())
+        self.assertIn("cam", buf.getvalue())
+        self.assertIn("ana", buf.getvalue())
+
+        buf.close()
+
+        await client.close()
+        serv.close()
+        await serv.wait_closed()
+
+    ### DELETE USER
+
+    async def test_client_delete_user(self):
+        
+        # setup server
+        state, serv = await self.setup()
+        await self.setup_client()
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            await client.create_user("ana")
+
+        buf.truncate(0)
+        with redirect_stdout(buf):
+            await client.delete_user("ana")
+        self.assertIn("successfully", buf.getvalue())
+
+        buf.close()
+
+        await client.close()
+        serv.close()
+        await serv.wait_closed()
+
+    async def test_client_delete_nonexisting(self):
+        
+        # setup server
+        state, serv = await self.setup()
+        await self.setup_client()
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            await client.delete_user("ana")
+        self.assertIn("successfully", buf.getvalue())
+        
+        buf.close()
+
+        await client.close()
+        serv.close()
+        await serv.wait_closed()
+
+    ### SEND MESSAGES
+
+    async def test_client_send_message(self):
+        
+        # setup server
+        state, serv = await self.setup()
+        await self.setup_client()
+
+        await state.create_user("ana")
+        await state.create_user("cam")
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            await client.login_user("ana")
+        self.assertIn("logged in", buf.getvalue())
+
+        buf.truncate(0)
+        with redirect_stdout(buf):
+            await client.send("Hello!", "cam")
+        self.assertIn("ana to cam: Hello!", buf.getvalue())
+
+        buf.close()
+
+        await client.close()
+        serv.close()
+        await serv.wait_closed()

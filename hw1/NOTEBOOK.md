@@ -89,3 +89,6 @@ management)
 
 Returning structured errors is difficult with protobuf because it's hard to
 attach arbitrary data as a field, so the server must do formatting instead
+
+debugging protobuf code might be up there with the most miserable coding
+experiences i've ever had

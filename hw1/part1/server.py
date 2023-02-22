@@ -81,6 +81,13 @@ class NotLoggedIn(jsonrpc.JsonRpcError):
         super().__init__(code=304, message=self.message, data=[])
 
 
+class AlreadyLoggedInSession(jsonrpc.JsonRpcError):
+    message = "this session has already logged in"
+
+    def __init__(self, s):
+        super().__init__(code=306, message=self.message, data={"current_user": s})
+
+
 # This class holds the details of any particular client connection (namely, the
 # username of the user it corresponds to). We indirect [login_handler] and
 # [logout_handler] through this object because they need both connection-local
@@ -109,6 +116,9 @@ class Session:
         self.message_handler = message_handler
 
     async def login(self, username: User) -> MessageList:
+        if self.username is not None:
+            raise AlreadyLoggedInSession(self.username)
+
         self.username = username
         return self.login_handler(self, username)
 
@@ -232,4 +242,5 @@ async def main(host: str, port: int):
 
 
 if __name__ == "__main__":
-    asyncio.run(main("10.250.159.96", 8888))
+    # asyncio.run(main("10.250.159.96", 8888))
+    asyncio.run(main("localhost", 8888))

@@ -7,6 +7,7 @@ from typing import Optional, NewType, Any
 from jsonrpc import spawn_session, Session
 from fnmatch import fnmatch
 from server import Message
+import aioconsole
 
 User = NewType("User", str)
 
@@ -134,7 +135,7 @@ async def delete_user(user: User):
 
 
 # Receive and display messages for user
-def receive_message(user: str, m: dict[str, Any]):
+async def receive_message(m: dict[str, Any]):
     print(m["sender"] + ": " + m["content"] + "\n")
 
 
@@ -148,7 +149,9 @@ async def setup():
 
 # Close the socket connection client-side
 async def close():
-    global writer
+    global writer, session, client_user
+    session = None
+    client_user = None
     writer.close()
     await writer.wait_closed()
 
@@ -194,7 +197,8 @@ async def main(host: str, port: int):
 
     # take input from user
     while True:
-        inp = input(">>>  ")
+        # inp = input(">>>  ")
+        inp = await aioconsole.ainput(">>>  ")
         tokens = inp.split()
 
         # if no action specified, loop again
@@ -236,7 +240,8 @@ async def main(host: str, port: int):
                 print("Missing argument: username.\n")
             else:
                 u = tokens[1]
-                msgtxt = input("Please input the message below:\n")
+                msgtxt = await aioconsole.ainput("Please input the message below:\n")
+                # msgtxt = input("Please input the message below:\n")
                 await send(msgtxt, User(u))
         # delete user
         elif action == "delete":
