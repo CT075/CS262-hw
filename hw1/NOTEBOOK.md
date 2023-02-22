@@ -92,3 +92,8 @@ attach arbitrary data as a field, so the server must do formatting instead
 
 debugging protobuf code might be up there with the most miserable coding
 experiences i've ever had
+
+The code is in fact more complex, and I don't notice any perf differences.
+
+The size of the buffers is smaller because protobuf is a bit-optimized format
+vs json strings.
