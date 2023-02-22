@@ -85,7 +85,7 @@ async def list_accounts(filter: str):
     global stub
     result = await stub.ListUsers(Ok())
     lst = result.users
-    filtered = [u if fnmatch(u, filter) else "" for u in lst]
+    filtered = [u.handle if fnmatch(u.handle, filter) else "" for u in lst]
     while "" in filtered:
         filtered.remove("")
     if len(filtered) == 0:
