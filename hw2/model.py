@@ -2,11 +2,10 @@ from multiprocessing import Process, Pipe, connection
 from os import getpid
 from datetime import datetime
 import random
-import logging
 from collections import namedtuple
 import time
 
-# A message is just a tuple of the local logical clock time
+# A message is just a tuple of the local logical clock time,
 # and the sender logical machine id
 Message = namedtuple("Message", ["localTime", "sender"])
 
@@ -38,15 +37,17 @@ class ModelMachine:
     lid: int
     # process
     process: Process
-    # logger for this machine
-    log: logging.Logger
 
     # Initialize machine
     # takes a logical id of which number machine this is
-    def __init__(self, lid: int, pipes: list[connection.Connection], log):
+    def __init__(self, lid: int, pipes: list[connection.Connection]):
+        # Write to log that machine has been initialized
+        f = open("log" + str(lid) + ".txt", "w")
+        f.write("Started up machine " + str(lid) + ".\n")
+        f.close()
+
         # Store inputs
         self.lid = lid
-        self.log = log
 
         # init queue and clock
         self.queue = []
@@ -57,31 +58,17 @@ class ModelMachine:
         
         # create process
         self.process = Process(target=self.run, args = pipes)
-        self.process.start()
-        self.process.join()
         
         
-    # Send message to model machine with logical number id
-    def send(self, p: connection.Connection, msg: Message):
-        # send the message
-        p.send(msg)
-        # update local clock
-        self.clock.increment()
-        # Update log
-        self.log.warning("Sent message to model machine " + str(id) +
-                          ". Global time: " + str(datetime.now()) +
-                          ". Logical clock time: " + str(self.clock.ctr))
-        
+    # Internal event
     def event(self):
         # update local clock
         self.clock.increment()
-        # Update log
-        # self.log.warning("Local event took place. Global time: " + str(datetime.now()) +
-        #                  ". Logical clock time: " + str(self.clock.ctr))
 
 
     def run(self, pipe1: connection.Connection, pipe2: connection.Connection):
         self.pid = getpid()
+        f = open("log" + str(self.lid) + ".txt", "a")
 
         while(True):
             time.sleep(0.5)
@@ -106,25 +93,38 @@ class ModelMachine:
                 # In a real system, there may be more.
                 if (rand == 1):
                     # send message to one machine
-                    self.send(pipe1, Message(self.clock.ctr, self.lid))
+                    pipe1.send(Message(self.clock.ctr, self.lid))
+                    # increment clock
+                    self.clock.increment()
+                    # log what happened
+                    f.write("Machine " + str(self.lid) + " sent message to model machine " + 
+                          ". Global time: " + str(datetime.now()) +
+                          ". Logical clock time: " + str(self.clock.ctr) +".\n")
                 elif (rand == 2):
                     # send message to other machine
-                    self.send(pipe2, Message(self.clock.ctr, self.lid))
+                    pipe2.send(Message(self.clock.ctr, self.lid))
+                    # increment clock
+                    self.clock.increment()
+                    # log what happened
+                    f.write("Machine " + str(self.lid) + " sent message to model machine " + 
+                          ". Global time: " + str(datetime.now()) +
+                          ". Logical clock time: " + str(self.clock.ctr) +".\n")
                 elif (rand == 3):
                     # send message to both machines
-                    self.send(pipe1, Message(self.clock.ctr, self.lid))
-                    self.send(pipe2, Message(self.clock.ctr, self.lid))
+                    pipe1.send(Message(self.clock.ctr, self.lid))
+                    pipe2.send(Message(self.clock.ctr, self.lid))
+                    # increment clock once -- one atomic action here
+                    self.clock.increment()
+                    # log what happened
+                    f.write("Machine " + str(self.lid) + " sent message to model machine " +
+                          ". Global time: " + str(datetime.now()) +
+                          ". Logical clock time: " + str(self.clock.ctr)+".\n")
                 else:
                     # internal event
-                    self.event()
+                    # increment clock
+                    self.clock.increment()
+                    # log what happened
 
-        
-def setup_logger(logger_name, log_file):
-    l = logging.getLogger(logger_name)
-    logging.basicConfig(level=logging.INFO)
-    fileHandler = logging.FileHandler(log_file, mode='w')
-    l.addHandler(fileHandler)
-    l.info(logger_name + " initialized.")
 
 
 if __name__ == "__main__":
@@ -133,15 +133,16 @@ if __name__ == "__main__":
     oneToThree, threeToOne = Pipe()
     twoToThree, threeToTwo = Pipe()
 
-    
-    setup_logger("Log1", "log1.txt")
-    setup_logger("Log2", "log2.txt")
-    setup_logger("Log3", "log3.txt")
+    # initialize machines
+    m1 = ModelMachine(1, [oneToTwo, oneToThree])
+    m2 = ModelMachine(2, [twoToOne, twoToThree])
+    m3 = ModelMachine(3, [threeToOne, threeToTwo])
 
-    log1 = logging.getLogger("Log1")
-    log2 = logging.getLogger("Log2")
-    log3 = logging.getLogger("Log3")
+    # start all processes
+    m1.process.start()
+    m2.process.start()
+    m3.process.start()
 
-    m1 = ModelMachine(1, [oneToTwo, oneToThree], log1)
-    m2 = ModelMachine(2, [twoToOne, twoToThree], log2)
-    m3 = ModelMachine(3, [threeToOne, threeToTwo], log3)
+    m1.process.join()
+    m2.process.join()
+    m3.process.join()
