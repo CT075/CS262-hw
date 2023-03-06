@@ -9,6 +9,7 @@ import time
 # and the sender logical machine id
 Message = namedtuple("Message", ["localTime", "sender"])
 
+
 class Clock:
     ctr: int
 
@@ -27,7 +28,7 @@ class Clock:
 class ModelMachine:
     # number of clock ticks per real world second
     clockRate: int
-    # logical clock 
+    # logical clock
     clock: Clock
 
     # network queue for incoming messages
@@ -55,76 +56,94 @@ class ModelMachine:
 
         # Randomly choose clock rate 1-6
         self.clockRate = random.randint(1, 6)
-        
+
         # create process
-        self.process = Process(target=self.run, args = pipes)
-        
-        
+        self.process = Process(target=self.run, args=pipes)
+
     # Internal event
     def event(self):
         # update local clock
         self.clock.increment()
 
-
     def run(self, pipe1: connection.Connection, pipe2: connection.Connection):
         self.pid = getpid()
         f = open("log" + str(self.lid) + ".txt", "a")
 
-        while(True):
-            time.sleep(0.5)
-            
-            # If there is a message in the queue    
-            if (len(self.queue) > 0):
+        while True:
+            time.sleep(1 / self.clockRate)
+
+            # If there is a message in the queue
+            if len(self.queue) > 0:
                 # Take message off the queue
-                msg = self.queue.pop
+                msg = self.queue.pop()
                 # Update clock
                 self.clock.msgRecUpdate(msg.localTime)
                 # Log what happened
                 # logging.info("Received message from model machine " + msg.sender +
-                #                 ". Global time: " + str(datetime.now()) + 
+                #                 ". Global time: " + str(datetime.now()) +
                 #                 ". Queue length: " + str(len(self.queue)) +
                 #                 ". Logical clock time: " + str(self.clock.ctr))
             else:
                 # generate random number 1-10
                 rand = random.randint(1, 10)
-                
+
                 # We assume there are exactly 3 machines in the system
                 # as per assignment specification.
                 # In a real system, there may be more.
-                if (rand == 1):
+                if rand == 1:
                     # send message to one machine
                     pipe1.send(Message(self.clock.ctr, self.lid))
                     # increment clock
                     self.clock.increment()
                     # log what happened
-                    f.write("Machine " + str(self.lid) + " sent message to model machine " + 
-                          ". Global time: " + str(datetime.now()) +
-                          ". Logical clock time: " + str(self.clock.ctr) +".\n")
-                elif (rand == 2):
+                    f.write(
+                        "Machine "
+                        + str(self.lid)
+                        + " sent message to model machine "
+                        + ". Global time: "
+                        + str(datetime.now())
+                        + ". Logical clock time: "
+                        + str(self.clock.ctr)
+                        + ".\n"
+                    )
+                elif rand == 2:
                     # send message to other machine
                     pipe2.send(Message(self.clock.ctr, self.lid))
                     # increment clock
                     self.clock.increment()
                     # log what happened
-                    f.write("Machine " + str(self.lid) + " sent message to model machine " + 
-                          ". Global time: " + str(datetime.now()) +
-                          ". Logical clock time: " + str(self.clock.ctr) +".\n")
-                elif (rand == 3):
+                    f.write(
+                        "Machine "
+                        + str(self.lid)
+                        + " sent message to model machine "
+                        + ". Global time: "
+                        + str(datetime.now())
+                        + ". Logical clock time: "
+                        + str(self.clock.ctr)
+                        + ".\n"
+                    )
+                elif rand == 3:
                     # send message to both machines
                     pipe1.send(Message(self.clock.ctr, self.lid))
                     pipe2.send(Message(self.clock.ctr, self.lid))
                     # increment clock once -- one atomic action here
                     self.clock.increment()
                     # log what happened
-                    f.write("Machine " + str(self.lid) + " sent message to model machine " +
-                          ". Global time: " + str(datetime.now()) +
-                          ". Logical clock time: " + str(self.clock.ctr)+".\n")
+                    f.write(
+                        "Machine "
+                        + str(self.lid)
+                        + " sent message to model machine "
+                        + ". Global time: "
+                        + str(datetime.now())
+                        + ". Logical clock time: "
+                        + str(self.clock.ctr)
+                        + ".\n"
+                    )
                 else:
                     # internal event
                     # increment clock
                     self.clock.increment()
                     # log what happened
-
 
 
 if __name__ == "__main__":
