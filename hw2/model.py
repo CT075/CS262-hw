@@ -36,12 +36,17 @@ class ModelMachine:
 
     # logical machine id: is this m1, m2, or m3?
     lid: int
-    # process
-    process: Process
+    # sender process
+    sender: Process
+    # receiver processes
+    receiver1: Process
+    receiver2: Process
 
     # Initialize machine
-    # takes a logical id of which number machine this is
-    def __init__(self, lid: int, pipes: list[connection.Connection]):
+    # takes a logical id of which number machine this is,
+    # a list of pipes used to send messages to others,
+    # and a list of pipes used to receive messages from others
+    def __init__(self, lid: int, sendPipes, recvPipes):
         # Write to log that machine has been initialized
         f = open("log" + str(lid) + ".txt", "w")
         f.write("Started up machine " + str(lid) + ".\n")
@@ -57,15 +62,23 @@ class ModelMachine:
         # Randomly choose clock rate 1-6
         self.clockRate = random.randint(1, 6)
 
-        # create process
-        self.process = Process(target=self.run, args=pipes)
+        # create sender
+        self.sender = Process(target=self.runSender, args=sendPipes)
+        self.receiver1 = Process(target=self.runReceiver1, args=recvPipes[0])
+        self.receiver2 = Process(target=self.runReceiver2, args=recvPipes[1])
 
-    # Internal event
-    def event(self):
-        # update local clock
-        self.clock.increment()
 
-    def run(self, pipe1: connection.Connection, pipe2: connection.Connection):
+    def runReceiver1(self, pipe1):
+        while True:
+            msg = pipe1.recv()
+            self.queue.append(msg)
+
+    def runReceiver2(self, pipe2):
+        while True:
+            msg = pipe2.recv()
+            self.queue.append(msg)
+
+    def runSender(self, pipe1, pipe2):
         self.pid = getpid()
         f = open("log" + str(self.lid) + ".txt", "a")
 
@@ -145,6 +158,16 @@ class ModelMachine:
                     self.clock.increment()
                     # log what happened
 
+    def startAll(self):
+        self.sender.start()
+        self.receiver1.start()
+        self.receiver2.start()
+
+    def joinAll(self):
+        self.sender.join()
+        self.receiver1.join()
+        self.receiver2.join()
+
 
 if __name__ == "__main__":
     # create connections
@@ -153,15 +176,15 @@ if __name__ == "__main__":
     twoToThree, threeToTwo = Pipe()
 
     # initialize machines
-    m1 = ModelMachine(1, [oneToTwo, oneToThree])
-    m2 = ModelMachine(2, [twoToOne, twoToThree])
-    m3 = ModelMachine(3, [threeToOne, threeToTwo])
+    m1 = ModelMachine(1, [oneToTwo, oneToThree], [twoToOne, threeToOne])
+    m2 = ModelMachine(2, [twoToOne, twoToThree], [oneToTwo, threeToTwo])
+    m3 = ModelMachine(3, [threeToOne, threeToTwo], [oneToThree, twoToThree])
 
     # start all processes
-    m1.process.start()
-    m2.process.start()
-    m3.process.start()
+    m1.startAll()
+    m2.startAll()
+    m3.startAll()
 
-    m1.process.join()
-    m2.process.join()
-    m3.process.join()
+    m1.joinAll()
+    m2.joinAll()
+    m3.joinAll()
