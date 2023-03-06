@@ -21,3 +21,8 @@ all actions centralized in one place within the run(...) function instead. This 
 to the very small bodies of the send(...) and event(...) functions which were just 1-2 lines. Since 
 the helper functions were so small, the helpers almost seemed more bulky. We may revisit this decision
 during testing.
+
+At first we had a receiver process per connection, but that seemed to be unreasonable for scaling.
+We decided to have just one receiver process per machine, listening on all connections. While this 
+means that messages cannot be "instantaneously" received from both machines (they are received in order), 
+we don't get the exponential blow up of processes when scaling.

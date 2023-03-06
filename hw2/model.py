@@ -6,8 +6,8 @@ from collections import namedtuple
 import time
 
 # A message is just a tuple of the local logical clock time,
-# and the sender logical machine id
-Message = namedtuple("Message", ["localTime", "sender"])
+# the sender logical machine id, and the message ID number
+Message = namedtuple("Message", ["localTime", "sender", "id"])
 
 
 class Clock:
@@ -21,6 +21,7 @@ class Clock:
         self.ctr = self.ctr + 1
 
     # update the clock upon receiving a message
+    # TODO: does this work for machines with diff clock rates?
     def msgRecUpdate(self, received_ctr):
         self.ctr = max(received_ctr, self.ctr) + 1
 
@@ -36,20 +37,27 @@ class ModelMachine:
 
     # logical machine id: is this m1, m2, or m3?
     lid: int
+
     # sender process
     sender: Process
-    # receiver processes
-    receiver1: Process
-    receiver2: Process
+    # receiver process
+    receiver: Process
+
+    # the next message id
+    msgID: int
 
     # Initialize machine
     # takes a logical id of which number machine this is,
     # a list of pipes used to send messages to others,
     # and a list of pipes used to receive messages from others
     def __init__(self, lid: int, sendPipes, recvPipes):
+        # Randomly choose clock rate 1-6
+        self.clockRate = random.randint(1, 6)
+
         # Write to log that machine has been initialized
         f = open("log" + str(lid) + ".txt", "w")
-        f.write("Started up machine " + str(lid) + ".\n")
+        f.write("Started up M" + str(lid) + " with clock rate " + 
+                str(self.clockRate) + ".\n")
         f.close()
 
         # Store inputs
@@ -58,31 +66,95 @@ class ModelMachine:
         # init queue and clock
         self.queue = []
         self.clock = Clock()
+        self.msgID = 0
 
-        # Randomly choose clock rate 1-6
-        self.clockRate = random.randint(1, 6)
-
-        # create sender
+        # create sender and receiver
         self.sender = Process(target=self.runSender, args=sendPipes)
-        self.receiver1 = Process(target=self.runReceiver1, args=recvPipes[0])
-        self.receiver2 = Process(target=self.runReceiver2, args=recvPipes[1])
+        self.receiver = Process(target=self.runReceiver, args=recvPipes)
+
+    # get next fresh message id
+    def freshMsgID(self):
+        self.msgID = self.msgID + 1
+        return self.msgID
+
+    def locTime(self):
+        return self.clock.ctr
+    
+    def logSend(self, f, msgId, machineId):
+        f.write(
+            "M"
+            + str(self.lid)
+            + " sent message " 
+            + str(msgId)
+            + " to M"
+            + str(machineId)
+            + ". Global time: "
+            + str(datetime.now())
+            + ". Logical clock time: "
+            + str(self.locTime())
+            + ".\n"
+        )
+    
+    def logSendBoth(self, f, id1, id2):
+        f.write(
+            "M"
+            + str(self.lid)
+            + " sent messages to M"
+            + str(id1) + " and M"
+            + str(id2)
+            + ". Global time: "
+            + str(datetime.now())
+            + ". Logical clock time: "
+            + str(self.locTime())
+            + ".\n"
+        )
 
 
-    def runReceiver1(self, pipe1):
+    def logReceive(self, f, msg):
+        f.write(
+            "Received message " 
+            + str(msg.id)
+            + " from M"
+            + str(msg.sender)
+            + ". Global time: "
+            + str(datetime.now())
+            + ". Queue length: "
+            + str(len(self.queue))
+            + ". Logical clock time: "
+            + str(self.locTime())
+            + ".\n"
+        )
+
+    def logInternal(self, f):
+        f.write(
+            "Internal event. Global time: "
+            + str(datetime.now())
+            + ". Logical clock time: "
+            + str(self.locTime())
+            + ".\n"
+        )
+
+
+
+    # This process runs in the background
+    # listening to both connecting pipes
+    # and storing the messages
+    def runReceiver(self, pipe1, pipe2):
         while True:
-            msg = pipe1.recv()
-            self.queue.append(msg)
-
-    def runReceiver2(self, pipe2):
-        while True:
-            msg = pipe2.recv()
-            self.queue.append(msg)
+            if (pipe1.poll()):
+                msg = pipe1.recv()
+                self.queue.append(msg)
+            if (pipe2.poll()):
+                msg = pipe2.recv()
+                self.queue.append(msg)
+            
 
     def runSender(self, pipe1, pipe2):
-        self.pid = getpid()
+        # open log file
         f = open("log" + str(self.lid) + ".txt", "a")
 
         while True:
+            # ensure proper clock rate by sleeping
             time.sleep(1 / self.clockRate)
 
             # If there is a message in the queue
@@ -92,81 +164,50 @@ class ModelMachine:
                 # Update clock
                 self.clock.msgRecUpdate(msg.localTime)
                 # Log what happened
-                # logging.info("Received message from model machine " + msg.sender +
-                #                 ". Global time: " + str(datetime.now()) +
-                #                 ". Queue length: " + str(len(self.queue)) +
-                #                 ". Logical clock time: " + str(self.clock.ctr))
+                self.logReceive(f, msg)
+                
             else:
                 # generate random number 1-10
                 rand = random.randint(1, 10)
+
+                # who are the other machines?
+                others = [x for x in [1,2,3] if (x != self.lid)]
 
                 # We assume there are exactly 3 machines in the system
                 # as per assignment specification.
                 # In a real system, there may be more.
                 if rand == 1:
                     # send message to one machine
-                    pipe1.send(Message(self.clock.ctr, self.lid))
+                    msg = Message(self.locTime(), self.lid, self.freshMsgID())
+                    pipe1.send(msg)
                     # increment clock
                     self.clock.increment()
                     # log what happened
-                    f.write(
-                        "Machine "
-                        + str(self.lid)
-                        + " sent message to model machine "
-                        + ". Global time: "
-                        + str(datetime.now())
-                        + ". Logical clock time: "
-                        + str(self.clock.ctr)
-                        + ".\n"
-                    )
+                    self.logSend(f, msg.id, others[0])
+                    
                 elif rand == 2:
                     # send message to other machine
-                    pipe2.send(Message(self.clock.ctr, self.lid))
+                    msg = Message(self.locTime(), self.lid, self.freshMsgID())
+                    pipe2.send(msg)
                     # increment clock
                     self.clock.increment()
                     # log what happened
-                    f.write(
-                        "Machine "
-                        + str(self.lid)
-                        + " sent message to model machine "
-                        + ". Global time: "
-                        + str(datetime.now())
-                        + ". Logical clock time: "
-                        + str(self.clock.ctr)
-                        + ".\n"
-                    )
+                    self.logSend(f, msg.id, others[1])
                 elif rand == 3:
                     # send message to both machines
-                    pipe1.send(Message(self.clock.ctr, self.lid))
-                    pipe2.send(Message(self.clock.ctr, self.lid))
+                    pipe1.send(
+                        Message(self.locTime(), self.lid, self.freshMsgID()))
+                    pipe2.send(
+                        Message(self.locTime(), self.lid, self.freshMsgID()))
                     # increment clock once -- one atomic action here
                     self.clock.increment()
                     # log what happened
-                    f.write(
-                        "Machine "
-                        + str(self.lid)
-                        + " sent message to model machine "
-                        + ". Global time: "
-                        + str(datetime.now())
-                        + ". Logical clock time: "
-                        + str(self.clock.ctr)
-                        + ".\n"
-                    )
+                    self.logSendBoth(f, others[0], others[1])
                 else:
-                    # internal event
-                    # increment clock
+                    # internal event, increment clock
                     self.clock.increment()
                     # log what happened
-
-    def startAll(self):
-        self.sender.start()
-        self.receiver1.start()
-        self.receiver2.start()
-
-    def joinAll(self):
-        self.sender.join()
-        self.receiver1.join()
-        self.receiver2.join()
+                    self.logInternal(f)
 
 
 if __name__ == "__main__":
@@ -181,10 +222,17 @@ if __name__ == "__main__":
     m3 = ModelMachine(3, [threeToOne, threeToTwo], [oneToThree, twoToThree])
 
     # start all processes
-    m1.startAll()
-    m2.startAll()
-    m3.startAll()
+    m1.sender.start()
+    m2.sender.start()
+    m3.sender.start()
 
-    m1.joinAll()
-    m2.joinAll()
-    m3.joinAll()
+    m1.receiver.start()
+    m2.receiver.start()
+    m3.receiver.start()
+
+    m1.sender.join()
+    m1.receiver.join()
+    m2.sender.join()
+    m2.receiver.join()
+    m3.sender.join()
+    m3.receiver.join()
