@@ -1,4 +1,4 @@
-from multiprocessing import Process, Pipe, connection
+from multiprocessing import Process, Pipe, connection, Queue
 from os import getpid
 from datetime import datetime
 import random
@@ -33,7 +33,10 @@ class ModelMachine:
     clock: Clock
 
     # network queue for incoming messages
-    queue: list[Message]
+    queue: Queue()
+    # another shared queue to communicate queue size
+    # since qsize() does not work on some macs
+    qsize: Queue()
 
     # logical machine id: is this m1, m2, or m3?
     lid: int
@@ -64,13 +67,29 @@ class ModelMachine:
         self.lid = lid
 
         # init queue and clock
-        self.queue = []
+        self.queue = Queue()
+        self.qsize = Queue()
         self.clock = Clock()
         self.msgID = 0
+        # init size of queue
+        self.qsize.put(0)
 
         # create sender and receiver
-        self.sender = Process(target=self.runSender, args=sendPipes)
-        self.receiver = Process(target=self.runReceiver, args=recvPipes)
+        self.sender = Process(
+            target=self.runSender, 
+            args=[sendPipes[0], sendPipes[1], self.queue, self.qsize])
+        self.receiver = Process(
+            target=self.runReceiver, 
+            args=[sendPipes[0], sendPipes[1], self.queue, self.qsize])
+
+    def __getstate__(self):
+        # capture what is normally pickled
+        state = self.__dict__.copy()
+
+        # remove unpicklable/problematic variables 
+        state['sender'] = None
+        state['receiver'] = None
+        return state
 
     # get next fresh message id
     def freshMsgID(self):
@@ -95,11 +114,14 @@ class ModelMachine:
             + ".\n"
         )
     
-    def logSendBoth(self, f, id1, id2):
+    def logSendBoth(self, f, msg1, msg2, id1, id2):
         f.write(
             "M"
             + str(self.lid)
-            + " sent messages to M"
+            + " sent messages "
+            + str(msg1) +
+            "," + str(msg2) 
+            + " to M"
             + str(id1) + " and M"
             + str(id2)
             + ". Global time: "
@@ -110,7 +132,7 @@ class ModelMachine:
         )
 
 
-    def logReceive(self, f, msg):
+    def logReceive(self, f, msg, size):
         f.write(
             "Received message " 
             + str(msg.id)
@@ -119,7 +141,7 @@ class ModelMachine:
             + ". Global time: "
             + str(datetime.now())
             + ". Queue length: "
-            + str(len(self.queue))
+            + str(size)
             + ". Logical clock time: "
             + str(self.locTime())
             + ".\n"
@@ -139,17 +161,21 @@ class ModelMachine:
     # This process runs in the background
     # listening to both connecting pipes
     # and storing the messages
-    def runReceiver(self, pipe1, pipe2):
+    def runReceiver(self, pipe1, pipe2, q, qsize):
         while True:
             if (pipe1.poll()):
                 msg = pipe1.recv()
-                self.queue.append(msg)
+                q.put(msg)
+                oldsize = qsize.get()
+                qsize.put(oldsize+1)
             if (pipe2.poll()):
                 msg = pipe2.recv()
-                self.queue.append(msg)
+                q.put(msg)
+                oldsize = qsize.get()
+                qsize.put(oldsize+1)
             
 
-    def runSender(self, pipe1, pipe2):
+    def runSender(self, pipe1, pipe2, q, qsize):
         # open log file
         f = open("log" + str(self.lid) + ".txt", "a")
 
@@ -158,13 +184,15 @@ class ModelMachine:
             time.sleep(1 / self.clockRate)
 
             # If there is a message in the queue
-            if len(self.queue) > 0:
+            if not q.empty():
                 # Take message off the queue
-                msg = self.queue.pop()
+                msg = q.get()
+                oldsize = qsize.get()
+                qsize.put(oldsize-1)
                 # Update clock
                 self.clock.msgRecUpdate(msg.localTime)
                 # Log what happened
-                self.logReceive(f, msg)
+                self.logReceive(f, msg, oldsize-1)
                 
             else:
                 # generate random number 1-10
@@ -178,21 +206,21 @@ class ModelMachine:
                 # In a real system, there may be more.
                 if rand == 1:
                     # send message to one machine
-                    msg = Message(self.locTime(), self.lid, self.freshMsgID())
-                    pipe1.send(msg)
+                    pipe1.send(
+                        Message(self.locTime(), self.lid, self.freshMsgID()))
                     # increment clock
                     self.clock.increment()
                     # log what happened
-                    self.logSend(f, msg.id, others[0])
+                    self.logSend(f, self.msgID, others[0])
                     
                 elif rand == 2:
                     # send message to other machine
-                    msg = Message(self.locTime(), self.lid, self.freshMsgID())
-                    pipe2.send(msg)
+                    pipe2.send(
+                        Message(self.locTime(), self.lid, self.freshMsgID()))
                     # increment clock
                     self.clock.increment()
                     # log what happened
-                    self.logSend(f, msg.id, others[1])
+                    self.logSend(f, self.msgID, others[1])
                 elif rand == 3:
                     # send message to both machines
                     pipe1.send(
@@ -202,7 +230,7 @@ class ModelMachine:
                     # increment clock once -- one atomic action here
                     self.clock.increment()
                     # log what happened
-                    self.logSendBoth(f, others[0], others[1])
+                    self.logSendBoth(f, self.msgID-1, self.msgID, others[0], others[1])
                 else:
                     # internal event, increment clock
                     self.clock.increment()
@@ -211,10 +239,10 @@ class ModelMachine:
 
 
 if __name__ == "__main__":
-    # create connections
-    oneToTwo, twoToOne = Pipe()
-    oneToThree, threeToOne = Pipe()
-    twoToThree, threeToTwo = Pipe()
+    # create connection tuples (receive, send)
+    twoToOne, oneToTwo = Pipe()
+    threeToOne, oneToThree = Pipe()
+    threeToTwo, twoToThree = Pipe()
 
     # initialize machines
     m1 = ModelMachine(1, [oneToTwo, oneToThree], [twoToOne, threeToOne])
@@ -231,8 +259,9 @@ if __name__ == "__main__":
     m3.receiver.start()
 
     m1.sender.join()
-    m1.receiver.join()
     m2.sender.join()
-    m2.receiver.join()
     m3.sender.join()
+
+    m1.receiver.join()
+    m2.receiver.join()
     m3.receiver.join()
