@@ -21,7 +21,6 @@ class Clock:
         self.ctr = self.ctr + 1
 
     # update the clock upon receiving a message
-    # TODO: does this work for machines with diff clock rates?
     def msgRecUpdate(self, received_ctr):
         self.ctr = max(received_ctr, self.ctr) + 1
 
@@ -53,7 +52,7 @@ class ModelMachine:
     # takes a logical id of which number machine this is,
     # a list of pipes used to send messages to others,
     # and a list of pipes used to receive messages from others
-    def __init__(self, lid: int, sendPipes, recvPipes):
+    def __init__(self, lid: int, pipes):
         # Randomly choose clock rate 1-6
         self.clockRate = random.randint(1, 6)
 
@@ -77,10 +76,10 @@ class ModelMachine:
         # create sender and receiver
         self.sender = Process(
             target=self.runSender, 
-            args=[sendPipes[0], sendPipes[1], self.queue, self.qsize])
+            args=[pipes[0], pipes[1], self.queue, self.qsize])
         self.receiver = Process(
             target=self.runReceiver, 
-            args=[sendPipes[0], sendPipes[1], self.queue, self.qsize])
+            args=[pipes[0], pipes[1], self.queue, self.qsize])
 
     def __getstate__(self):
         # capture what is normally pickled
@@ -196,7 +195,7 @@ class ModelMachine:
                 
             else:
                 # generate random number 1-10
-                rand = random.randint(1, 10)
+                rand = random.randint(1,10)
 
                 # who are the other machines?
                 others = [x for x in [1,2,3] if (x != self.lid)]
@@ -245,9 +244,9 @@ if __name__ == "__main__":
     threeToTwo, twoToThree = Pipe()
 
     # initialize machines
-    m1 = ModelMachine(1, [oneToTwo, oneToThree], [twoToOne, threeToOne])
-    m2 = ModelMachine(2, [twoToOne, twoToThree], [oneToTwo, threeToTwo])
-    m3 = ModelMachine(3, [threeToOne, threeToTwo], [oneToThree, twoToThree])
+    m1 = ModelMachine(1, [oneToTwo, oneToThree])
+    m2 = ModelMachine(2, [twoToOne, twoToThree])
+    m3 = ModelMachine(3, [threeToOne, threeToTwo])
 
     # start all processes
     m1.sender.start()

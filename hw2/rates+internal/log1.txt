@@ -1,0 +1,137 @@
+Started up M1 with clock rate 2.
+M1 sent messages 1,2 to M2 and M3. Global time: 2023-03-07 11:43:28.994515. Logical clock time: 1.
+Internal event. Global time: 2023-03-07 11:43:29.495061. Logical clock time: 2.
+Internal event. Global time: 2023-03-07 11:43:29.995944. Logical clock time: 3.
+Received message 1 from M2. Global time: 2023-03-07 11:43:30.500062. Queue length: 0. Logical clock time: 4.
+M1 sent message 3 to M2. Global time: 2023-03-07 11:43:31.005224. Logical clock time: 5.
+Received message 1 from M3. Global time: 2023-03-07 11:43:31.505496. Queue length: 0. Logical clock time: 6.
+Internal event. Global time: 2023-03-07 11:43:32.007852. Logical clock time: 7.
+M1 sent messages 4,5 to M2 and M3. Global time: 2023-03-07 11:43:32.508098. Logical clock time: 8.
+Internal event. Global time: 2023-03-07 11:43:33.008229. Logical clock time: 9.
+Internal event. Global time: 2023-03-07 11:43:33.508938. Logical clock time: 10.
+M1 sent message 6 to M3. Global time: 2023-03-07 11:43:34.011859. Logical clock time: 11.
+Received message 2 from M2. Global time: 2023-03-07 11:43:34.513871. Queue length: 0. Logical clock time: 12.
+Internal event. Global time: 2023-03-07 11:43:35.013956. Logical clock time: 13.
+Received message 4 from M2. Global time: 2023-03-07 11:43:35.514095. Queue length: 0. Logical clock time: 14.
+M1 sent message 7 to M2. Global time: 2023-03-07 11:43:36.014283. Logical clock time: 15.
+M1 sent messages 8,9 to M2 and M3. Global time: 2023-03-07 11:43:36.514424. Logical clock time: 16.
+Internal event. Global time: 2023-03-07 11:43:37.014509. Logical clock time: 17.
+M1 sent message 10 to M3. Global time: 2023-03-07 11:43:37.514634. Logical clock time: 18.
+Internal event. Global time: 2023-03-07 11:43:38.014721. Logical clock time: 19.
+Received message 6 from M2. Global time: 2023-03-07 11:43:38.514848. Queue length: 0. Logical clock time: 20.
+M1 sent message 11 to M2. Global time: 2023-03-07 11:43:39.017355. Logical clock time: 21.
+Internal event. Global time: 2023-03-07 11:43:39.517696. Logical clock time: 22.
+Internal event. Global time: 2023-03-07 11:43:40.017778. Logical clock time: 23.
+M1 sent message 12 to M3. Global time: 2023-03-07 11:43:40.517918. Logical clock time: 24.
+M1 sent message 13 to M3. Global time: 2023-03-07 11:43:41.022154. Logical clock time: 25.
+Internal event. Global time: 2023-03-07 11:43:41.522277. Logical clock time: 26.
+Internal event. Global time: 2023-03-07 11:43:42.024454. Logical clock time: 27.
+Internal event. Global time: 2023-03-07 11:43:42.529535. Logical clock time: 28.
+Internal event. Global time: 2023-03-07 11:43:43.034134. Logical clock time: 29.
+Received message 9 from M2. Global time: 2023-03-07 11:43:43.534390. Queue length: 0. Logical clock time: 30.
+Internal event. Global time: 2023-03-07 11:43:44.034505. Logical clock time: 31.
+M1 sent message 14 to M2. Global time: 2023-03-07 11:43:44.536877. Logical clock time: 32.
+M1 sent message 15 to M3. Global time: 2023-03-07 11:43:45.037029. Logical clock time: 33.
+Internal event. Global time: 2023-03-07 11:43:45.537113. Logical clock time: 34.
+M1 sent message 16 to M3. Global time: 2023-03-07 11:43:46.037253. Logical clock time: 35.
+Received message 11 from M2. Global time: 2023-03-07 11:43:46.540462. Queue length: 0. Logical clock time: 36.
+Internal event. Global time: 2023-03-07 11:43:47.040559. Logical clock time: 37.
+M1 sent message 17 to M2. Global time: 2023-03-07 11:43:47.541726. Logical clock time: 38.
+M1 sent messages 18,19 to M2 and M3. Global time: 2023-03-07 11:43:48.041881. Logical clock time: 39.
+Internal event. Global time: 2023-03-07 11:43:48.541965. Logical clock time: 40.
+M1 sent message 20 to M3. Global time: 2023-03-07 11:43:49.042105. Logical clock time: 41.
+M1 sent messages 21,22 to M2 and M3. Global time: 2023-03-07 11:43:49.542247. Logical clock time: 42.
+M1 sent message 23 to M2. Global time: 2023-03-07 11:43:50.042390. Logical clock time: 43.
+M1 sent message 24 to M2. Global time: 2023-03-07 11:43:50.542518. Logical clock time: 44.
+Internal event. Global time: 2023-03-07 11:43:51.042612. Logical clock time: 45.
+M1 sent message 25 to M3. Global time: 2023-03-07 11:43:51.542729. Logical clock time: 46.
+M1 sent message 26 to M3. Global time: 2023-03-07 11:43:52.042859. Logical clock time: 47.
+Internal event. Global time: 2023-03-07 11:43:52.542945. Logical clock time: 48.
+M1 sent message 27 to M2. Global time: 2023-03-07 11:43:53.043096. Logical clock time: 49.
+M1 sent message 28 to M3. Global time: 2023-03-07 11:43:53.546304. Logical clock time: 50.
+M1 sent messages 29,30 to M2 and M3. Global time: 2023-03-07 11:43:54.049930. Logical clock time: 51.
+Internal event. Global time: 2023-03-07 11:43:54.550137. Logical clock time: 52.
+M1 sent message 31 to M2. Global time: 2023-03-07 11:43:55.050576. Logical clock time: 53.
+Internal event. Global time: 2023-03-07 11:43:55.551598. Logical clock time: 54.
+Internal event. Global time: 2023-03-07 11:43:56.051708. Logical clock time: 55.
+M1 sent message 32 to M2. Global time: 2023-03-07 11:43:56.552066. Logical clock time: 56.
+M1 sent message 33 to M3. Global time: 2023-03-07 11:43:57.052294. Logical clock time: 57.
+M1 sent messages 34,35 to M2 and M3. Global time: 2023-03-07 11:43:57.552441. Logical clock time: 58.
+M1 sent message 36 to M2. Global time: 2023-03-07 11:43:58.052659. Logical clock time: 59.
+Internal event. Global time: 2023-03-07 11:43:58.553146. Logical clock time: 60.
+M1 sent message 37 to M3. Global time: 2023-03-07 11:43:59.053349. Logical clock time: 61.
+M1 sent message 38 to M2. Global time: 2023-03-07 11:43:59.553633. Logical clock time: 62.
+M1 sent message 39 to M3. Global time: 2023-03-07 11:44:00.058845. Logical clock time: 63.
+Internal event. Global time: 2023-03-07 11:44:00.563951. Logical clock time: 64.
+Internal event. Global time: 2023-03-07 11:44:01.064115. Logical clock time: 65.
+Received message 14 from M2. Global time: 2023-03-07 11:44:01.569255. Queue length: 0. Logical clock time: 66.
+M1 sent messages 40,41 to M2 and M3. Global time: 2023-03-07 11:44:02.069862. Logical clock time: 67.
+Internal event. Global time: 2023-03-07 11:44:02.573194. Logical clock time: 68.
+M1 sent message 42 to M2. Global time: 2023-03-07 11:44:03.074043. Logical clock time: 69.
+Internal event. Global time: 2023-03-07 11:44:03.574128. Logical clock time: 70.
+Internal event. Global time: 2023-03-07 11:44:04.074446. Logical clock time: 71.
+Received message 16 from M2. Global time: 2023-03-07 11:44:04.579595. Queue length: 0. Logical clock time: 72.
+M1 sent message 43 to M2. Global time: 2023-03-07 11:44:05.084759. Logical clock time: 73.
+M1 sent message 44 to M3. Global time: 2023-03-07 11:44:05.588838. Logical clock time: 74.
+M1 sent message 45 to M3. Global time: 2023-03-07 11:44:06.093964. Logical clock time: 75.
+M1 sent message 46 to M2. Global time: 2023-03-07 11:44:06.595475. Logical clock time: 76.
+Internal event. Global time: 2023-03-07 11:44:07.095570. Logical clock time: 77.
+M1 sent messages 47,48 to M2 and M3. Global time: 2023-03-07 11:44:07.598464. Logical clock time: 78.
+M1 sent messages 49,50 to M2 and M3. Global time: 2023-03-07 11:44:08.101559. Logical clock time: 79.
+M1 sent message 51 to M2. Global time: 2023-03-07 11:44:08.603642. Logical clock time: 80.
+M1 sent messages 52,53 to M2 and M3. Global time: 2023-03-07 11:44:09.103787. Logical clock time: 81.
+M1 sent message 54 to M2. Global time: 2023-03-07 11:44:09.603904. Logical clock time: 82.
+M1 sent messages 55,56 to M2 and M3. Global time: 2023-03-07 11:44:10.104909. Logical clock time: 83.
+M1 sent message 57 to M2. Global time: 2023-03-07 11:44:10.610063. Logical clock time: 84.
+Internal event. Global time: 2023-03-07 11:44:11.111562. Logical clock time: 85.
+M1 sent message 58 to M2. Global time: 2023-03-07 11:44:11.615737. Logical clock time: 86.
+Internal event. Global time: 2023-03-07 11:44:12.117814. Logical clock time: 87.
+M1 sent messages 59,60 to M2 and M3. Global time: 2023-03-07 11:44:12.621179. Logical clock time: 88.
+Internal event. Global time: 2023-03-07 11:44:13.121558. Logical clock time: 89.
+Internal event. Global time: 2023-03-07 11:44:13.625574. Logical clock time: 90.
+Internal event. Global time: 2023-03-07 11:44:14.128858. Logical clock time: 91.
+Internal event. Global time: 2023-03-07 11:44:14.633060. Logical clock time: 92.
+Internal event. Global time: 2023-03-07 11:44:15.133154. Logical clock time: 93.
+Received message 5 from M3. Global time: 2023-03-07 11:44:15.633293. Queue length: 0. Logical clock time: 94.
+M1 sent message 61 to M2. Global time: 2023-03-07 11:44:16.133433. Logical clock time: 95.
+Internal event. Global time: 2023-03-07 11:44:16.635512. Logical clock time: 96.
+Internal event. Global time: 2023-03-07 11:44:17.137602. Logical clock time: 97.
+Internal event. Global time: 2023-03-07 11:44:17.637717. Logical clock time: 98.
+M1 sent messages 62,63 to M2 and M3. Global time: 2023-03-07 11:44:18.138023. Logical clock time: 99.
+M1 sent message 64 to M3. Global time: 2023-03-07 11:44:18.638874. Logical clock time: 100.
+M1 sent message 65 to M2. Global time: 2023-03-07 11:44:19.139039. Logical clock time: 101.
+M1 sent message 66 to M3. Global time: 2023-03-07 11:44:19.639281. Logical clock time: 102.
+Internal event. Global time: 2023-03-07 11:44:20.139375. Logical clock time: 103.
+M1 sent messages 67,68 to M2 and M3. Global time: 2023-03-07 11:44:20.639673. Logical clock time: 104.
+M1 sent messages 69,70 to M2 and M3. Global time: 2023-03-07 11:44:21.140792. Logical clock time: 105.
+M1 sent messages 71,72 to M2 and M3. Global time: 2023-03-07 11:44:21.642052. Logical clock time: 106.
+M1 sent messages 73,74 to M2 and M3. Global time: 2023-03-07 11:44:22.142233. Logical clock time: 107.
+M1 sent message 75 to M2. Global time: 2023-03-07 11:44:22.643382. Logical clock time: 108.
+M1 sent message 76 to M3. Global time: 2023-03-07 11:44:23.143700. Logical clock time: 109.
+Internal event. Global time: 2023-03-07 11:44:23.644374. Logical clock time: 110.
+M1 sent messages 77,78 to M2 and M3. Global time: 2023-03-07 11:44:24.145188. Logical clock time: 111.
+M1 sent message 79 to M2. Global time: 2023-03-07 11:44:24.646915. Logical clock time: 112.
+Internal event. Global time: 2023-03-07 11:44:25.147066. Logical clock time: 113.
+M1 sent message 80 to M3. Global time: 2023-03-07 11:44:25.648222. Logical clock time: 114.
+Internal event. Global time: 2023-03-07 11:44:26.148575. Logical clock time: 115.
+M1 sent messages 81,82 to M2 and M3. Global time: 2023-03-07 11:44:26.649691. Logical clock time: 116.
+M1 sent messages 83,84 to M2 and M3. Global time: 2023-03-07 11:44:27.149840. Logical clock time: 117.
+M1 sent message 85 to M2. Global time: 2023-03-07 11:44:27.649960. Logical clock time: 118.
+M1 sent message 86 to M2. Global time: 2023-03-07 11:44:28.152976. Logical clock time: 119.
+M1 sent message 87 to M2. Global time: 2023-03-07 11:44:28.654340. Logical clock time: 120.
+M1 sent messages 88,89 to M2 and M3. Global time: 2023-03-07 11:44:29.154512. Logical clock time: 121.
+M1 sent messages 90,91 to M2 and M3. Global time: 2023-03-07 11:44:29.655472. Logical clock time: 122.
+Internal event. Global time: 2023-03-07 11:44:30.155565. Logical clock time: 123.
+Internal event. Global time: 2023-03-07 11:44:30.659345. Logical clock time: 124.
+M1 sent message 92 to M2. Global time: 2023-03-07 11:44:31.160862. Logical clock time: 125.
+M1 sent messages 93,94 to M2 and M3. Global time: 2023-03-07 11:44:31.661013. Logical clock time: 126.
+M1 sent messages 95,96 to M2 and M3. Global time: 2023-03-07 11:44:32.161156. Logical clock time: 127.
+M1 sent message 97 to M3. Global time: 2023-03-07 11:44:32.661510. Logical clock time: 128.
+M1 sent messages 98,99 to M2 and M3. Global time: 2023-03-07 11:44:33.161661. Logical clock time: 129.
+M1 sent messages 100,101 to M2 and M3. Global time: 2023-03-07 11:44:33.661806. Logical clock time: 130.
+M1 sent message 102 to M2. Global time: 2023-03-07 11:44:34.162045. Logical clock time: 131.
+M1 sent message 103 to M3. Global time: 2023-03-07 11:44:34.662193. Logical clock time: 132.
+M1 sent message 104 to M2. Global time: 2023-03-07 11:44:35.162423. Logical clock time: 133.
+Internal event. Global time: 2023-03-07 11:44:35.664697. Logical clock time: 134.
+M1 sent message 105 to M3. Global time: 2023-03-07 11:44:36.164937. Logical clock time: 135.
+M1 sent message 106 to M2. Global time: 2023-03-07 11:44:36.665087. Logical clock time: 136.
