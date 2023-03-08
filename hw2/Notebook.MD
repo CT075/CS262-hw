@@ -69,7 +69,23 @@ queue length is large for these slower machines. We conclude that the machine wi
 lowest clock rate is not able to keep up with taking messages off the queue and updating 
 the logical clock, hence the radical drift.
 
+### Smaller variation in clock rates
 
+We ran a trial with random clock rates between 1-3 instead of 1-6. 
+Machine M3 (clock rate 3) had LLCT 180 after a minute (expected 180).
+Machine M2 (clock rate 2) had LLCT 174 after a minute.
+Machine M1 (clock rate 1) had LLCT 177 after a minute.
+
+There is some clock drift but the gaps between the clocks of 
+different machines (highest vs lowest clock rate) are not as large. 
+Also, over the course of the minute, even though M1 had the lowest clock rate, 
+it was able to process the network queue consistently, never reaching above 
+3 messages in the queue at a time. We conclude that lower variation in clock 
+rates allows the machines to catch up with each others' messages, and 
+preventing the radical clock drift and queue backlog we saw in the previous 
+trials.
+
+### Smaller probability of internal event
 
 
 
