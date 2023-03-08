@@ -1,3 +1,7 @@
+## Running instructions
+
+To run the model, run "python model.py" or "python3 model.py" from the terminal, depending in your version of python.
+
 ## Basic design of a model machine
 
 We have chosen to represent each model machine as a process, with pipe connections between different machines. The class ModelMachine is a wrapper around this basic design.
