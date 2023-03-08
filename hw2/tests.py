@@ -21,10 +21,10 @@ class TestClock(TestCase):
         self.assertEqual(clock.ctr, 6)
 
         clock.msgRecUpdate(3)
-        self.assertEqual(clock.ctr, 6)
-
-        clock.msgRecUpdate(6)
         self.assertEqual(clock.ctr, 7)
+
+        clock.msgRecUpdate(8)
+        self.assertEqual(clock.ctr, 9)
 
 
 if __name__ == "__main__":
