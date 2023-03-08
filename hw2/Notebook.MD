@@ -27,6 +27,12 @@ We decided to have just one receiver process per machine, listening on all conne
 means that messages cannot be "instantaneously" received from both machines (they are received in order), 
 we don't get the exponential blow up of processes when scaling.
 
+We decided to give each message an ID to keep track of exactly which messages have been received (and 
+when) and which were still on the queue. 
+
+We chose to keep an extra shared Queue between processes to keep track of the queue size, as the 
+function qsize() did not work on the mac we tested this on (this is a common thing apparently).
+
 ## Discussion
 
 **"Examine the logs, and discuss (in the lab book) the size of the jumps in the values for the logical clocks, drift in the values of the local logical clocks in the different machines (you can get a god’s eye view because of the system time), and the impact different timings on such things as gaps in the logical clock values and length of the message queue. Observations and reflections about the model and the results of running the model are more than welcome.

@@ -9,7 +9,7 @@ import time
 # the sender logical machine id, and the message ID number
 Message = namedtuple("Message", ["localTime", "sender", "id"])
 
-
+# The class representing logical clocks
 class Clock:
     ctr: int
 
@@ -25,6 +25,7 @@ class Clock:
         self.ctr = max(received_ctr, self.ctr) + 1
 
 
+# The class representing each model machine
 class ModelMachine:
     # number of clock ticks per real world second
     clockRate: int
@@ -50,8 +51,8 @@ class ModelMachine:
 
     # Initialize machine
     # takes a logical id of which number machine this is,
-    # a list of pipes used to send messages to others,
-    # and a list of pipes used to receive messages from others
+    # and a list of pipes used to send messages to others
+    # as well as receive messages
     def __init__(self, lid: int, pipes):
         # Randomly choose clock rate 1-6
         self.clockRate = random.randint(1, 6)
@@ -81,6 +82,9 @@ class ModelMachine:
             target=self.runReceiver, 
             args=[pipes[0], pipes[1], self.queue, self.qsize])
 
+    # prevent the pickler from pickling 
+    # processes inside the ModelMachine object
+    # because processes are not picklable
     def __getstate__(self):
         # capture what is normally pickled
         state = self.__dict__.copy()
@@ -95,9 +99,11 @@ class ModelMachine:
         self.msgID = self.msgID + 1
         return self.msgID
 
+    # get current logical clock time
     def locTime(self):
         return self.clock.ctr
     
+    # log sent message with msgID and receiver
     def logSend(self, f, msgId, machineId):
         f.write(
             "M"
@@ -113,6 +119,7 @@ class ModelMachine:
             + ".\n"
         )
     
+    # log sent messages with msgIDs and receivers
     def logSendBoth(self, f, msg1, msg2, id1, id2):
         f.write(
             "M"
@@ -130,7 +137,7 @@ class ModelMachine:
             + ".\n"
         )
 
-
+    # log received message and the size of the queue
     def logReceive(self, f, msg, size):
         f.write(
             "Received message " 
@@ -146,6 +153,7 @@ class ModelMachine:
             + ".\n"
         )
 
+    # log internal event
     def logInternal(self, f):
         f.write(
             "Internal event. Global time: "
@@ -156,17 +164,18 @@ class ModelMachine:
         )
 
 
-
     # This process runs in the background
     # listening to both connecting pipes
     # and storing the messages
     def runReceiver(self, pipe1, pipe2, q, qsize):
         while True:
+            # check first pipe for messages
             if (pipe1.poll()):
                 msg = pipe1.recv()
                 q.put(msg)
                 oldsize = qsize.get()
                 qsize.put(oldsize+1)
+            # check second pipe for messages
             if (pipe2.poll()):
                 msg = pipe2.recv()
                 q.put(msg)
@@ -174,6 +183,8 @@ class ModelMachine:
                 qsize.put(oldsize+1)
             
 
+    # This process receives messages, sends messages, 
+    # and handles internal events
     def runSender(self, pipe1, pipe2, q, qsize):
         # open log file
         f = open("log" + str(self.lid) + ".txt", "a")
