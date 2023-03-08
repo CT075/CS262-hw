@@ -87,7 +87,16 @@ trials.
 
 ### Smaller probability of internal event
 
+We ran a trial with a lower, 40% chance of an internal event (rand 1-5 instead of 
+1-10). 
+Machine M1 (clock rate 6) had LLCT 358 after a minute (expected 360).
+Machine M3 (clock rate 3) had LLCT 358 after a minute.
+Machine M2 (clock rate 1) had LLCT 152 after a minute. Queue length 88.
 
-
-
+In this trial, the machine with the highest clock rate had small drift as expected, 
+but the machine with the lowest clock rate had an even more radical drift. 
+The queue size was also much larger. We conclude that when there is a lower chance 
+of an internal event, the machines with the higher clock rates are producing 
+messages at higher rates and absolutely pummeling the machine with the lower clock rate.
+The slow machine is not able to process all the messages in time and backlogs even quicker.
 
