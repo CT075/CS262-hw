@@ -6,6 +6,8 @@ import server
 import argparse
 
 if __name__ == "__main__":
+    # TODO: set up so that connect client gets a list of ports
+
     parser = argparse.ArgumentParser(
         prog="chat server demo", description="cs262 design 1"
     )

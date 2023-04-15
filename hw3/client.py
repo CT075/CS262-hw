@@ -24,11 +24,13 @@ writer: asyncio.StreamWriter
 
 
 # Connect to server
-async def connect(host: str, port: int):
+# takes a list of server ports and connects to the one
+# with the lowest number
+async def connect(host: str, ports: list[int]):
     global session
     global writer
     # connect to the socket and start a session with the server
-    reader, writer = await asyncio.open_connection(host, port)
+    reader, writer = await asyncio.open_connection(host, min(ports))
     session = spawn_session(reader, writer)
 
 
