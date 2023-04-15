@@ -159,7 +159,7 @@ async def close():
 
 
 # in main, do the connect and setup and UI
-async def main(host: str, port: int):
+async def main(host: str, ports: list(int)):
     global client_user
     print(
         "//////////////////////////////////////////////////////////\n"
@@ -192,7 +192,7 @@ async def main(host: str, port: int):
         "//////////////////////////////////////////////////////////\n"
     )
     # connect to server
-    await connect(host, port)
+    await connect(host, ports)
     print("Connected to server.\n")
     # setup the event loop and handlers
     await setup()
