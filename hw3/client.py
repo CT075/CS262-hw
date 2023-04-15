@@ -8,6 +8,7 @@ from jsonrpc import spawn_session, Session
 from fnmatch import fnmatch
 from server import Message
 import aioconsole
+import filelib
 
 User = NewType("User", str)
 
@@ -159,7 +160,7 @@ async def close():
 
 
 # in main, do the connect and setup and UI
-async def main(host: str, ports: list(int)):
+async def main(host: str):
     global client_user
     print(
         "//////////////////////////////////////////////////////////\n"
@@ -192,6 +193,7 @@ async def main(host: str, ports: list(int)):
         "//////////////////////////////////////////////////////////\n"
     )
     # connect to server
+    ports = filelib.read_ports()
     await connect(host, ports)
     print("Connected to server.\n")
     # setup the event loop and handlers
