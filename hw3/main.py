@@ -18,7 +18,12 @@ if __name__ == "__main__":
     if args.command == "server":
         # Set up three servers with random port #s in a 
         # certain range, and record the ports in a file
-        asyncio.run(server.main(args.host, args.port))
+        ports = filelib.write_ports()
+        asyncio.run(server.main(args.host, ports[0]))
+        asyncio.run(server.main(args.host, ports[1]))
+        asyncio.run(server.main(args.host, ports[2]))
+        # TODO: init the servers properly with connections 
+        # to next server, etc.
     elif args.command == "client":
         # Read the ports from file and pass to client 
         # main, which will connect to the primary
