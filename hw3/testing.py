@@ -41,9 +41,8 @@ class TestChat(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(state.known_users.get(User("cam")), LoggedOut(MessageList([Message(ana, User("cam"),"Hello!")])))
 
 
-        dic = [(k, v.to_jsonable_type()) for k, v in state.known_users.items()]
-
-        await filelib.write_obj("testdump.txt", json.dumps(dic))
+        await filelib.write_obj("testdump.txt", 
+                                json.dumps(state.to_jsonable_type()))
         dc = await filelib.read_obj("testdump.txt")
 
         serv.close()

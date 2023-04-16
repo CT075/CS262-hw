@@ -167,6 +167,9 @@ class State:
     def __init__(self):
         self.known_users = dict()
 
+    def to_jsonable_type(self):
+        return [(k, v.to_jsonable_type()) for k, v in self.known_users.items()]
+
     def handle_login(self, session: Session, user: User) -> MessageList:
         if user not in self.known_users:
             raise NoSuchUser(user)
