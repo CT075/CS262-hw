@@ -1,1 +1,1 @@
-"[[\"ana\", \"logged in\"], [\"cam\", [{\"sender\": \"ana\", \"recipient\": \"cam\", \"content\": \"Hello!\"}]]]"
+"[[\"ana\", []], [\"cam\", [{\"sender\": \"ana\", \"recipient\": \"cam\", \"content\": \"Hello!\"}]]]"

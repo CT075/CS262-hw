@@ -44,6 +44,7 @@ class TestChat(unittest.IsolatedAsyncioTestCase):
         dic = [(k, v.to_jsonable_type()) for k, v in state.known_users.items()]
 
         await filelib.write_obj("testdump.txt", json.dumps(dic))
+        dc = await filelib.read_obj("testdump.txt")
 
         serv.close()
         await serv.wait_closed()

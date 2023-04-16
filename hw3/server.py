@@ -146,7 +146,7 @@ class LoggedIn:
     session: Session
 
     def to_jsonable_type(self):
-        return "logged in"
+        return []
 
 
 @dataclass
