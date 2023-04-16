@@ -27,11 +27,11 @@ writer: asyncio.StreamWriter
 # Connect to server
 # takes a list of server ports and connects to the one
 # with the lowest number
-async def connect(host: str, ports: list[int]):
+async def connect(host: str, port: int):
     global session
     global writer
     # connect to the socket and start a session with the server
-    reader, writer = await asyncio.open_connection(host, min(ports))
+    reader, writer = await asyncio.open_connection(host, port)
     session = spawn_session(reader, writer)
 
 
@@ -160,7 +160,7 @@ async def close():
 
 
 # in main, do the connect and setup and UI
-async def main(host: str):
+async def main(host: str, port: int):
     global client_user
     print(
         "//////////////////////////////////////////////////////////\n"
@@ -193,8 +193,7 @@ async def main(host: str):
         "//////////////////////////////////////////////////////////\n"
     )
     # connect to server
-    ports = filelib.read_ports()
-    await connect(host, ports)
+    await connect(host, port)
     print("Connected to server.\n")
     # setup the event loop and handlers
     await setup()

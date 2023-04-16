@@ -28,6 +28,7 @@ if __name__ == "__main__":
         # Read the ports from file and pass to client 
         # main, which will connect to the primary
         ports = filelib.read_ports()
-        asyncio.run(client.main(args.host, ports))
+        ports.sort()
+        asyncio.run(client.main(args.host, ports[0]))
     else:
         assert False

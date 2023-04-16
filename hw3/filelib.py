@@ -5,19 +5,21 @@ import random
 # Library for writing and reading files
 
 # Read the 3 port numbers for all existing servers 
-def read_ports():
+async def read_ports():
     file = open('portnums.txt', 'r')
     ports = [int(x) for x in file.readline().split()]
+    file.close()
     return ports
 
 # Generate server port numbers and write to file, 
 # return the list for convenience
-def write_ports():
+async def write_ports():
     file = open('portnums.txt', 'w')
-    ports = random.sample(range(8000, 8999), 3)
+    ports = random.sample(range(8880, 8889), 3)
     file.write(str(ports[0]) + " " + 
                str(ports[1]) + " " + 
                str(ports[2]) + " ")
+    file.close()
     return ports
 
 # writes a single object to file
@@ -30,4 +32,4 @@ async def write_obj(filename: str, obj: str):
 # reads a single object from file
 async def read_obj(filename: str):
     with open(filename, 'r') as openfile:
-        return json.load(openfile)
+        return json.load(openfile) 

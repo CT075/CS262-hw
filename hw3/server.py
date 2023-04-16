@@ -145,10 +145,16 @@ class Session:
 class LoggedIn:
     session: Session
 
+    def to_jsonable_type(self):
+        return "logged in"
+
 
 @dataclass
 class LoggedOut:
     pending_msgs: MessageList
+
+    def to_jsonable_type(self):
+        return self.pending_msgs.to_jsonable_type()
 
 
 # We can avoid locks here due to the guarantees of async-await programming.
