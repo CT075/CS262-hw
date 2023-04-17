@@ -296,7 +296,7 @@ class State:
 
     async def store_msg(self, msg: Message) -> Ok:
         self.db[msg.recipient].append(msg)
-        await self.forward("store_msg", msg)
+        await self.forward("store_msg", msg.to_jsonable_type())
 
         return Ok()
 
