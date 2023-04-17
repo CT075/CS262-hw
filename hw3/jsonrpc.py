@@ -237,7 +237,7 @@ class Session:
         self.handlers[method_name] = action
 
     # Helper: Run a coroutine in the background
-    def run_in_background(self, coro: Coroutine[..., ..., ...]):
+    def run_in_background(self, coro: Coroutine[Any, Any, Any]):
         task = asyncio.create_task(coro)
         self.pending_jobs.add(task)
         # discard this task from pending jobs when done
@@ -297,8 +297,8 @@ class Session:
         self.curr_id = increment_requestid(self.curr_id)
         return prev
 
-    # This is the function client uses to send requests
-    async def request(self, *, method, params, is_notification=False) -> Response:
+    # This is the function used to send requests
+    async def request(self, *, method, params, is_notification=False) -> Response:  # type: ignore[return]
         # if notification, no response expected
         if is_notification:
             wait_for_resp = False

@@ -1,13 +1,13 @@
 import asyncio
+import json
 from dataclasses import dataclass
-from typing import Optional, Union, Callable, NewType, Awaitable
+from typing import Optional, Callable, NewType, Awaitable
 
 import jsonrpc
 
 User = NewType("User", str)
 
-# In a real app, we'd use a database, but for this app, we'll use in-memory
-# structures for logins, messages, etc.
+SERVER_DB_FORMAT = "{host}-{port}-db.json"
 
 
 @dataclass
@@ -142,83 +142,92 @@ class Session:
 
 
 @dataclass
-class LoggedIn:
-    session: Session
+class Db:
+    d: dict[User, MessageList]
 
     def to_jsonable_type(self):
-        return []
+        return [(k, v.to_jsonable_type()) for k, v in self.d.items()]
 
+    def __getitem__(self, item: User) -> MessageList:
+        return self.d[item]
 
-@dataclass
-class LoggedOut:
-    pending_msgs: MessageList
+    def fetch_pending_msgs(self, user: User):
+        result = self.d[user]
+        self.d[user] = MessageList([])
 
-    def to_jsonable_type(self):
-        return self.pending_msgs.to_jsonable_type()
+        return result
+
+    # TODO: commit
+    def __setitem__(self, k: User, v: MessageList):
+        self.d[k] = v
+
+    def __delitem__(self, user: User):
+        del self.d[user]
+
+    def __contains__(self, user: User):
+        return user in self.d
+
+    def keys(self):
+        return self.d.keys()
+
+    def get(self, user: User) -> Optional[MessageList]:
+        return self.d.get(user)
 
 
 # We can avoid locks here due to the guarantees of async-await programming.
 # In particular, job interleaving can only happen across an [await] boundary,
-# so as long as we do all our modifications of [known_users] in one "breath",
-# there should be no issues with another thread seeing an intermediate state.
+# so as long as we do all our modifications of [db] in one "breath", there
+# should be no issues with another thread seeing an intermediate state.
 class State:
-    known_users: dict[User, Union[LoggedIn, LoggedOut]]
+    db: Db
+    # Invariant: [logins.keys()] is a subset of [db.keys()]
+    logins: dict[User, Session]
 
-    def __init__(self):
-        self.known_users = dict()
-
-    def to_jsonable_type(self):
-        return [(k, v.to_jsonable_type()) for k, v in self.known_users.items()]
+    def __init__(self, db):
+        self.db = db
 
     def handle_login(self, session: Session, user: User) -> MessageList:
-        if user not in self.known_users:
+        if user not in self.db:
             raise NoSuchUser(user)
 
-        login_status = self.known_users[user]
-
-        if isinstance(login_status, LoggedIn):
+        if user in self.logins:
             raise AlreadyLoggedIn(user)
 
-        assert isinstance(login_status, LoggedOut)
-        pending_msgs = login_status.pending_msgs
+        self.logins[user] = session
 
-        self.known_users[user] = LoggedIn(session)
-
-        return pending_msgs
+        return self.db.fetch_pending_msgs(user)
 
     def handle_logout(self, user: User) -> None:
-        self.known_users[user] = LoggedOut(MessageList([]))
+        self.db[user] = MessageList([])
 
     async def handle_send_message(self, msg: Message) -> Ok:
         # Send the message to user
-        if msg.recipient not in self.known_users:
+        if msg.recipient not in self.db:
             raise NoSuchUser(msg.recipient)
 
-        login_status = self.known_users[msg.recipient]
+        recipient_session = self.logins.get(msg.recipient)
 
-        if isinstance(login_status, LoggedIn):
-            await login_status.session.receive_message(msg)
-        elif isinstance(login_status, LoggedOut):
-            login_status.pending_msgs.append(msg)
+        if recipient_session is None:
+            self.db[msg.recipient].append(msg)
         else:
-            assert False
+            await recipient_session.receive_message(msg)
 
         return Ok()
 
     async def create_user(self, name: User) -> Ok:
-        if name in self.known_users:
+        if name in self.db:
             raise UserAlreadyExists(name)
 
-        self.known_users[name] = LoggedOut(MessageList([]))
+        self.db[name] = MessageList([])
 
         return Ok()
 
     async def list_users(self, *args) -> UserList:
-        return UserList(list(self.known_users.keys()))
+        return UserList(list(self.db.keys()))
 
     async def delete_user(self, user: User) -> Ok:
-        if user in self.known_users:
-            del self.known_users[user]
+        if user in self.db:
+            del self.db[user]
 
         # If it's not there, oh well. The point of [delete_user] is to produce
         # a server state in which the desired user no longer exists, so if that
@@ -244,7 +253,13 @@ class State:
 
 
 async def main(host: str, port: int):
-    state = State()
+    try:
+        with open(SERVER_DB_FORMAT.format(host=host, port=port), "r") as f:
+            db = json.load(f)
+    except FileNotFoundError:
+        db = {}
+
+    state = State(db)
     server = await asyncio.start_server(state.handle_incoming, host, port)
     async with server:
         await server.serve_forever()
