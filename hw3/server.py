@@ -5,9 +5,10 @@ import asyncio
 import json
 from collections.abc import Coroutine
 from dataclasses import dataclass
-from typing import Optional, Callable, Awaitable, NoReturn, Any
-from common import User, Ok, Host, Port, Address
+from typing import Optional, Callable, Awaitable, NoReturn, Any, Union
+import os.path
 
+from common import User, Ok, Host, Port, Address
 import config
 import jsonrpc
 
@@ -110,6 +111,18 @@ class ImPrimary(jsonrpc.JsonRpcError):
         super().__init__(code=501, message=self.message, data=[])
 
 
+@dataclass
+class DbUpdate:
+    db: dict[User, MessageList]
+    mtime: Optional[float]
+
+    def to_jsonable_type(self):
+        return {
+            "db": {user: msgs.to_jsonable_type() for user, msgs in self.db.items()},
+            "mtime": self.mtime,
+        }
+
+
 # This class holds the details of any particular client connection (namely, the
 # username of the user it corresponds to). We indirect [login_handler] and
 # [logout_handler] through this object because they need both connection-local
@@ -163,22 +176,18 @@ class UserSession:
             self.logout_handler(self.username)
 
 
-class ReplicaSession:
-    is_connected: bool
-
-    def __init__(self):
-        self.is_connected = False
-
-    async def accept(self) -> Ok:
-        print("accepted connection from upstream")
-        self.is_connected = True
-        return Ok()
+def wrap_message_lists(d: dict[User, list[Message]]):
+    return {user: MessageList(messages) for user, messages in d.items()}
 
 
 @dataclass
 class Db:
     d: dict[User, MessageList]
     store_path: str
+
+    def __init__(self, d, store_path):
+        self.d = wrap_message_lists(d)
+        self.store_path = store_path
 
     def __getitem__(self, item: User) -> MessageList:
         return self.d[item]
@@ -187,14 +196,14 @@ class Db:
         result = self.d[user]
         self.d[user] = MessageList([])
 
-        return result
+        return MessageList(result) if isinstance(result, list) else result
 
     def __contains__(self, user: User):
         return user in self.d
 
     def keys(self):
         return self.d.keys()
-    
+
     def append_to(self, user, msg):
         self.d[user].append(msg)
         self.commit()
@@ -203,7 +212,15 @@ class Db:
         return self.d.get(user)
 
     def to_jsonable_type(self):
-        return {k: v.to_jsonable_type() for k, v in self.d.items()}
+        return {
+            k: [
+                item.to_jsonable_type() if isinstance(item, Message) else item
+                for item in v
+            ]
+            if isinstance(v, list)
+            else v.to_jsonable_type()
+            for k, v in self.d.items()
+        }
 
     def commit(self) -> None:
         try:
@@ -224,6 +241,20 @@ class Db:
         self.commit()
 
 
+class ReplicaSession:
+    is_connected: bool
+    update_db_handler: Callable[[Db, Optional[float]], Awaitable[Ok]]
+
+    def __init__(self, update_db_handler):
+        self.is_connected = False
+        self.update_db_handler = update_db_handler
+
+    async def accept(self, db: Db, mtime: Optional[float]) -> Ok:
+        print("accepted connection from upstream")
+        self.is_connected = True
+        return await self.update_db_handler(db, mtime)
+
+
 @dataclass
 class ReplicaInfo:
     next: Optional[jsonrpc.Session]
@@ -239,7 +270,7 @@ class ReplicaInfo:
             next_conn = await asyncio.open_connection(*next_addr)
             self.next = jsonrpc.spawn_session(*next_conn)
             self.next.run_in_background(self.next.run_event_loop())
-            await self.next.request(method="register_replica_source", params=[])
+            await self.next.request(method="register_replica_source", params=[{}, -1])
             return await self.forward(method, *args)
         assert self.next is not None
         await self.next.request(method=method, params=args)
@@ -265,6 +296,7 @@ class State:
     replica_info: ReplicaInfo
     cfg: config.Config
     addr: Address
+    mtime: Optional[float]
 
     def __init__(
         self,
@@ -273,6 +305,7 @@ class State:
         db: Db,
         is_primary: bool,
         replica_info: ReplicaInfo,
+        mtime: Optional[float],
     ):
         self.db = db
         self.logins = dict()
@@ -280,6 +313,7 @@ class State:
         self.replica_info = replica_info
         self.cfg = cfg
         self.addr = addr
+        self.mtime = mtime
 
     async def forward(self, method: str, *args):
         await self.replica_info.forward(method, *args)
@@ -352,8 +386,20 @@ class State:
     async def reject_client(self) -> NoReturn:
         raise ImABackup()
 
-    async def reject_replica_source(self) -> NoReturn:
+    async def reject_replica_source(self, *args, **kwargs) -> NoReturn:
         raise ImPrimary()
+
+    async def update_db(self, db, mtime: Optional[float]) -> Union[Ok, DbUpdate]:
+        if (self.mtime or -1) < (mtime or -1):
+            print("upstream reported newer db, updating")
+            self.mtime = mtime
+            self.db.d = db
+            self.db.commit()
+            await self.forward("update_db", self.db.d, self.mtime)
+            return Ok()
+        else:
+            print("current db is newer than upstram")
+            return DbUpdate(self.db.d, self.mtime)
 
     async def elect_leader(self) -> None:
         # Ping every server in the up-line. If any responds, that server is the
@@ -377,9 +423,10 @@ class State:
         self.is_primary = True
 
     async def handle_as_backup(self, session: jsonrpc.Session) -> None:
-        replica_session = ReplicaSession()
+        replica_session = ReplicaSession(self.update_db)
 
         session.register_handler("register_replica_source", replica_session.accept)
+        session.register_handler("update_db", self.update_db)
         session.register_handler("register_client", self.reject_client)
         session.register_handler("retrieve_pending", self.retrieve_pending)
         session.register_handler("create_user", self.create_user)
@@ -431,10 +478,11 @@ async def main(host: str, port: int):
         )
 
     try:
-        with open(SERVER_DB_FORMAT.format(host=host, port=port), "r") as f:
-            db = json.load(f)
+        db_path = SERVER_DB_FORMAT.format(host=host, port=port)
+        with open(db_path, "r") as f:
+            db, mtime = json.load(f), os.path.getmtime(db_path)
     except FileNotFoundError:
-        db = {}
+        db, mtime = {}, None
 
     is_primary = cfg.am_i_primary(addr)
     backups = cfg.following(addr)
@@ -448,18 +496,21 @@ async def main(host: str, port: int):
         next_conn = await asyncio.open_connection(*first_backup_addr)
         next = jsonrpc.spawn_session(*next_conn)
         run_in_background(pending_jobs, next.run_event_loop())
-        # Properly, we should make sure that this actually returns an Ok
-        await next.request(method="register_replica_source", params=[])
+        resp = await next.request(method="register_replica_source", params=[db, mtime])
+        if resp.payload != "ok":
+            db = resp.payload["db"]  # type: ignore
+            mtime = resp.payload["mtime"]  # type: ignore
 
     state = State(
         cfg,
         addr,
         Db(
-            {user: MessageList(messages) for user, messages in db.items()},
+            db,
             SERVER_DB_FORMAT.format(host=host, port=port),
         ),
         is_primary,
         ReplicaInfo(next=next, tail=tail),
+        mtime,
     )
 
     server = await asyncio.start_server(state.handle_incoming, host, port)
