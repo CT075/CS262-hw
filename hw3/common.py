@@ -1,7 +1,8 @@
-from typing import NewType
+from typing import NewType, Tuple
 
 Host = NewType("Host", str)
 Port = NewType("Port", int)
+Address = Tuple[Host, Port]
 
 
 class Ok:

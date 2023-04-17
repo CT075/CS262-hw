@@ -1,8 +1,9 @@
 import asyncio
 import json
+from collections.abc import Coroutine
 from dataclasses import dataclass
-from typing import Optional, Callable, Awaitable, NoReturn
-from common import User, Ok
+from typing import Optional, Callable, Awaitable, NoReturn, Any
+from common import User, Ok, Host, Port
 
 import config
 import jsonrpc
@@ -193,9 +194,21 @@ class State:
     db: Db
     # Invariant: [logins.keys()] is a subset of [db.keys()]
     logins: dict[User, Session]
+    pending_jobs: set[asyncio.Task]
+    is_primary: bool
 
-    def __init__(self, db):
+    # XXX: This is copy-pasted from [jsonrpc.py].
+    def run_in_background(self, coro: Coroutine[Any, Any, Any]):
+        task = asyncio.create_task(coro)
+        self.pending_jobs.add(task)
+        # discard this task from pending jobs when done
+        task.add_done_callback(self.pending_jobs.discard)
+
+    def __init__(self, db, primary):
         self.db = db
+        self.logins = dict()
+        self.pending_jobs = set()
+        self.is_primary = primary
 
     async def handle_login(self, session: Session, user: User) -> MessageList:
         if user not in self.db:
@@ -251,7 +264,7 @@ class State:
     async def accept_client(self) -> Ok:
         return Ok()
 
-    async def run_backup(self, reader, writer) -> None:
+    async def handle_as_backup(self, reader, writer) -> None:
         session = jsonrpc.spawn_session(reader, writer)
 
         session.register_handler("register_client", self.reject_client)
@@ -262,7 +275,9 @@ class State:
 
         await session.run_event_loop()
 
-    async def run_primary(self, reader, writer) -> None:
+    # TODO: the difference between [session] and [user_session] is confusing,
+    # come up with better names
+    async def handle_as_primary(self, reader, writer) -> None:
         session = jsonrpc.spawn_session(reader, writer)
         user_session = Session(
             session, self.handle_login, self.handle_logout, self.handle_send_message
@@ -278,14 +293,23 @@ class State:
         await session.run_event_loop()
         user_session.cleanup()
 
-    # TODO: the difference between [session] and [user_session] is confusing,
-    # come up with better names
     async def handle_incoming(self, reader, writer) -> None:
-        await self.run_primary(reader, writer)
+        if self.is_primary:
+            await self.handle_as_primary(reader, writer)
+        else:
+            # TODO
+            pass
 
 
 async def main(host: str, port: int):
     cfg = config.load()
+
+    addr = (Host(host), Port(port))
+
+    if addr not in cfg:
+        raise ValueError(
+            f"refusing to bind to address {host}:{port} not listed in config.json"
+        )
 
     try:
         with open(SERVER_DB_FORMAT.format(host=host, port=port), "r") as f:
@@ -293,7 +317,9 @@ async def main(host: str, port: int):
     except FileNotFoundError:
         db = {}
 
-    state = State(db)
+    is_primary = cfg.am_i_primary(addr)
+    state = State(db, is_primary)
+
     server = await asyncio.start_server(state.handle_incoming, host, port)
     async with server:
         await server.serve_forever()
@@ -301,4 +327,4 @@ async def main(host: str, port: int):
 
 if __name__ == "__main__":
     # asyncio.run(main("10.250.159.96", 8888))
-    asyncio.run(main("localhost", 8888))
+    asyncio.run(main("localhost", 15251))
