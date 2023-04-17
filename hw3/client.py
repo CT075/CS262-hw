@@ -6,9 +6,7 @@ import asyncio
 from typing import Optional, NewType, Any
 from jsonrpc import spawn_session, Session
 from fnmatch import fnmatch
-from server import Message
-import aioconsole
-import filelib
+import aioconsole  # type: ignore
 
 User = NewType("User", str)
 
@@ -38,7 +36,7 @@ async def connect(host: str, port: int):
 # Send login request to server
 async def login_user(user: User):
     global client_user
-    if client_user != None:
+    if client_user is not None:
         print("Cannot login more than one user.\n")
         return
 
@@ -48,7 +46,7 @@ async def login_user(user: User):
     # if the result is an error, print error message
     if result.is_error:
         print(
-            "Error logging in user " + user + ": " + result.payload["message"] + ".\n"
+            "Error logging in user " + user + ": " + result.payload["message"] + ".\n"  # type: ignore
         )
     # otherwise, print that user is logged in
     # and display pending messages
@@ -74,7 +72,7 @@ async def create_user(user: User):
     result = await session.request(method="create_user", params=params)
     # if server gives error, print it
     if result.is_error:
-        print("Error creating user " + user + ": " + result.payload["message"] + ".\n")
+        print("Error creating user " + user + ": " + result.payload["message"] + ".\n")  # type: ignore
     # if server confirms, display success message
     elif result.payload == "ok":
         print("New user " + user + " created successfully.\n")
@@ -88,7 +86,7 @@ async def list_accounts(filter: str):
     result = await session.request(method="list_users", params=[])
     # if server gives error, print it
     if result.is_error:
-        print("Error listing accounts: " + result.payload["message"] + ".\n")
+        print("Error listing accounts: " + result.payload["message"] + ".\n")  # type: ignore
     # if server confirms, print the filtered account names
     elif isinstance(result.payload, list):
         lst = result.payload
@@ -113,10 +111,10 @@ async def send(msg: str, user: User):
     result = await session.request(method="send", params=params)
     # if server gives error, print it
     if result.is_error:
-        print("Error sending message: " + result.payload["message"] + ".\n")
+        print("Error sending message: " + result.payload["message"] + ".\n")  # type: ignore
     # if server confirms, display the message that was sent
     elif result.payload == "ok":
-        print(client_user + " to " + user + ": " + msg + "\n")
+        print(client_user + " to " + user + ": " + msg + "\n")  # type: ignore
     else:
         # this should not happen
         print("Something went wrong. Please try again.\n")
@@ -128,7 +126,7 @@ async def delete_user(user: User):
     result = await session.request(method="delete_user", params=params)
     # if server gives error, print it
     if result.is_error:
-        print("Error deleting user " + user + ": " + result.payload["message"] + ".\n")
+        print("Error deleting user " + user + ": " + result.payload["message"] + ".\n")  # type: ignore
     # if server confirms, display the message that was sent
     elif result.payload == "ok":
         print("User " + user + " successfully deleted.\n")

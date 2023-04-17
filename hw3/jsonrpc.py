@@ -177,6 +177,10 @@ class NoSuchRequest(JsonRpcError):
         super().__init__(code=402, message=self.message, data=data)
 
 
+class Disconnected(Exception):
+    pass
+
+
 T = TypeVar("T")
 
 
@@ -301,6 +305,9 @@ class Session:
 
     # This is the function used to send requests
     async def request(self, *, method, params, is_notification=False) -> Response:  # type: ignore[return]
+        if not self.is_running:
+            raise Disconnected()
+
         # if notification, no response expected
         if is_notification:
             wait_for_resp = False
@@ -366,7 +373,11 @@ class Session:
                     )
             else:
                 self.run_in_background(self.report_error_nofail(BadRequestError(obj)))
+
         self.is_running = False
+
+        for job in list(self.pending_jobs):
+            job.cancel()
 
 
 # create a session
