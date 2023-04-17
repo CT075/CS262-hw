@@ -195,7 +195,7 @@ class Db:
         return self.d.get(user)
 
     def to_jsonable_type(self):
-        return [(k, v.to_jsonable_type()) for k, v in self.d.items()]
+        return {k: v.to_jsonable_type() for k, v in self.d.items()}
 
     def commit(self) -> None:
         try:
@@ -444,7 +444,10 @@ async def main(host: str, port: int):
     state = State(
         cfg,
         addr,
-        Db(db, SERVER_DB_FORMAT.format(host=host, port=port)),
+        Db(
+            {user: MessageList(messages) for user, messages in db.items()},
+            SERVER_DB_FORMAT.format(host=host, port=port),
+        ),
         is_primary,
         ReplicaInfo(next=next, tail=tail),
     )
