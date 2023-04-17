@@ -207,6 +207,11 @@ async def main():
             await connect(cfg)
             print("Connected to server.\n")
 
+            if (client_user != None):
+                user = client_user
+                client_user = None
+                await login_user(user)
+
             # take input from user
             while True:
                 # inp = input(">>>  ")

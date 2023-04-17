@@ -40,6 +40,10 @@ class MessageList:
     data: list[Message]
 
     def to_jsonable_type(self):
+        if len(self.data) > 0:
+            if isinstance(self.data[0], dict):
+                return self.data
+
         return [msg.to_jsonable_type() for msg in self.data]
 
     def append(self, msg: Message):
@@ -190,6 +194,10 @@ class Db:
 
     def keys(self):
         return self.d.keys()
+    
+    def append_to(self, user, msg):
+        self.d[user].append(msg)
+        self.commit()
 
     def get(self, user: User) -> Optional[MessageList]:
         return self.d.get(user)
@@ -294,8 +302,10 @@ class State:
     def handle_logout(self, user: User) -> None:
         del self.logins[user]
 
-    async def store_msg(self, msg: Message) -> Ok:
-        self.db[msg.recipient].append(msg)
+    async def store_msg(self, msg) -> Ok:
+        if not isinstance(msg, Message):
+            msg = Message(msg["sender"], msg["recipient"], msg["content"])
+        self.db.append_to(msg.recipient, msg)
         await self.forward("store_msg", msg.to_jsonable_type())
 
         return Ok()
