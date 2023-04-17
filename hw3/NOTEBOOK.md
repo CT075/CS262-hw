@@ -12,18 +12,21 @@ To ensure that no messages are dropped and that all servers consistently have th
 worldview as the client, we establish the following ordering of events:
 
 1. Client sends request
-2. Primary server forwards the request to backup server (2), and BS(2) forwards the request
-to BS(3).
-3. Only after we ensure that the backups have written their state, we have PS(1) record its
-state. If the primary server dies before the backups are propagated, the client will not be 
-under the false impression that the request went through.
+2. Primary server receives the request, and writes the current state to file.
+3. Primary server forwards the request to backup server (2) (which writes its own state to file), 
+and BS(2) forwards the request to BS(3) (which writes its own state to file).
 
-We choose the primary server (leader election) by simply choosing the lowest port number. 
-The client chooses the server with the lowest port number to connect to.
-We allow servers to have open connections for communication with each other, but since 
-the lowest port number is the primary, clients will only connect to the primary.
+The reason we write to the local database first is because if the primary writes to 
+backup before acknowledging that an action took place to the client, and the primary
+goes down, then the client and the backup servers have a different worldview (client 
+does not know the action took place, but the backups do).
 
-If the primary server dies, BS(2) becomes the primary. The chain setup with BS(3) remains unchanged.
+The configuration file has sever port numbers in order. The first port number is the 
+primary server, and the rest are backups (in chain order). To connect or reconnect, 
+the client tries all port numbers in order as they appear in the configuration file.
+
+If the primary server dies, BS(2) becomes the primary. The chain setup with BS(3) remains unchanged, 
+the client reconnects to BS(2).
 If BS(3) dies, the primary and the chain setup with PS(1) and BS(2) does not change.
 If BS(2) dies, we ensure that PS(1) now connects to BS(3) instead, bypassing the dead backup.
 
