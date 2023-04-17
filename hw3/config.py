@@ -37,7 +37,7 @@ def load(config=DEFAULT_CONFIG) -> Config:
 
     # In a real app, we'd do some validation here
     result = Config(
-        [(Host(server["host"]), Port(server["port"])) for server in servers]
+        [(Host(server["host"]), Port(int(server["port"]))) for server in servers]
     )
 
     return result

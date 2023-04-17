@@ -13,6 +13,8 @@ import jsonrpc
 
 SERVER_DB_FORMAT = "{host}-{port}-db.json"
 
+pending_jobs: set[asyncio.Task] = set()
+
 
 async def ping() -> Ok:
     return Ok()
@@ -163,8 +165,10 @@ class ReplicaSession:
     def __init__(self):
         self.is_connected = False
 
-    def accept(self):
+    async def accept(self) -> Ok:
+        print("accepted connection from upstream")
         self.is_connected = True
+        return Ok()
 
 
 @dataclass
@@ -193,11 +197,13 @@ class Db:
     def to_jsonable_type(self):
         return [(k, v.to_jsonable_type()) for k, v in self.d.items()]
 
-    def commit(self):
+    def commit(self) -> None:
         try:
             with open(self.store_path, "w") as f:
-                json.dump(f, self.to_jsonable_type())
-        except IOError:
+                json.dump(self.to_jsonable_type(), f)
+                print("wrote file")
+        except IOError as e:
+            print("couldn't write file", e)
             # in a real app, we'd log
             pass
 
@@ -224,9 +230,19 @@ class ReplicaInfo:
             next_addr, *self.tail = self.tail
             next_conn = await asyncio.open_connection(*next_addr)
             self.next = jsonrpc.spawn_session(*next_conn)
+            self.next.run_in_background(self.next.run_event_loop())
+            await self.next.request(method="register_replica_source", params=[])
             return await self.forward(method, *args)
         assert self.next is not None
         await self.next.request(method=method, params=args)
+
+
+# XXX: This is copy-pasted from [jsonrpc.py].
+def run_in_background(pending_jobs, coro: Coroutine[Any, Any, Any]):
+    task = asyncio.create_task(coro)
+    pending_jobs.add(task)
+    # discard this task from pending jobs when done
+    task.add_done_callback(pending_jobs.discard)
 
 
 # We can avoid locks here due to the guarantees of async-await programming.
@@ -237,7 +253,6 @@ class State:
     db: Db
     # Invariant: [logins.keys()] is a subset of [db.keys()]
     logins: dict[User, UserSession]
-    pending_jobs: set[asyncio.Task]
     is_primary: bool
     replica_info: ReplicaInfo
     cfg: config.Config
@@ -253,12 +268,13 @@ class State:
     ):
         self.db = db
         self.logins = dict()
-        self.pending_jobs = set()
         self.is_primary = is_primary
         self.replica_info = replica_info
+        self.cfg = cfg
+        self.addr = addr
 
     async def forward(self, method: str, *args):
-        await self.forward(method, *args)
+        await self.replica_info.forward(method, *args)
 
     async def retrieve_pending(self, user: User) -> MessageList:
         await self.forward("retrieve_pending", user)
@@ -337,7 +353,9 @@ class State:
             try:
                 conn = await asyncio.open_connection(*addr)
                 sess = jsonrpc.spawn_session(*conn)
+                sess.run_in_background(sess.run_event_loop())
                 resp = await sess.request(method="ping", params=[])
+                conn[1].close()
                 if not resp.is_error:
                     print("got ping, continuing to act as backup")
                     return
@@ -391,13 +409,6 @@ class State:
         else:
             await self.handle_as_backup(session)
 
-    # XXX: This is copy-pasted from [jsonrpc.py].
-    def run_in_background(self, coro: Coroutine[Any, Any, Any]):
-        task = asyncio.create_task(coro)
-        self.pending_jobs.add(task)
-        # discard this task from pending jobs when done
-        task.add_done_callback(self.pending_jobs.discard)
-
 
 async def main(host: str, port: int):
     cfg = config.load()
@@ -426,10 +437,17 @@ async def main(host: str, port: int):
         backup_host, backup_port = first_backup_addr
         next_conn = await asyncio.open_connection(*first_backup_addr)
         next = jsonrpc.spawn_session(*next_conn)
+        run_in_background(pending_jobs, next.run_event_loop())
         # Properly, we should make sure that this actually returns an Ok
         await next.request(method="register_replica_source", params=[])
 
-    state = State(cfg, addr, db, is_primary, ReplicaInfo(next=next, tail=tail))
+    state = State(
+        cfg,
+        addr,
+        Db(db, SERVER_DB_FORMAT.format(host=host, port=port)),
+        is_primary,
+        ReplicaInfo(next=next, tail=tail),
+    )
 
     server = await asyncio.start_server(state.handle_incoming, host, port)
     async with server:

@@ -14,6 +14,7 @@ from collections.abc import Coroutine
 from typing import NewType, Optional, Any, Callable, TypeVar, Generic
 from typing_extensions import Protocol
 
+from common import Disconnected
 import transport
 
 
@@ -177,10 +178,6 @@ class NoSuchRequest(JsonRpcError):
         super().__init__(code=402, message=self.message, data=data)
 
 
-class Disconnected(Exception):
-    pass
-
-
 T = TypeVar("T")
 
 
@@ -305,6 +302,8 @@ class Session:
 
     # This is the function used to send requests
     async def request(self, *, method, params, is_notification=False) -> Response:  # type: ignore[return]
+        # yield to scheduler to let [self.is_running] update
+        await asyncio.sleep(0)
         if not self.is_running:
             raise Disconnected()
 

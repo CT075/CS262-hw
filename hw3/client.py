@@ -4,9 +4,12 @@
 
 import asyncio
 from typing import Optional, NewType, Any
-from jsonrpc import spawn_session, Session
 from fnmatch import fnmatch
 import aioconsole  # type: ignore
+
+from jsonrpc import spawn_session, Session
+from common import Disconnected
+import config
 
 User = NewType("User", str)
 
@@ -25,12 +28,25 @@ writer: asyncio.StreamWriter
 # Connect to server
 # takes a list of server ports and connects to the one
 # with the lowest number
-async def connect(host: str, port: int):
+async def connect(cfg: config.Config):
     global session
     global writer
-    # connect to the socket and start a session with the server
-    reader, writer = await asyncio.open_connection(host, port)
-    session = spawn_session(reader, writer)
+
+    for (host, port) in cfg.servers:
+        try:
+            # connect to the socket and start a session with the server
+            reader, writer = await asyncio.open_connection(host, port)
+            session = spawn_session(reader, writer)
+            session.run_in_background(session.run_event_loop())
+            resp = await session.request(method="register_client", params=[])
+            if resp.payload == "ok":
+                session.register_handler("receive_message", receive_message)
+                return
+        except:
+            pass
+    else:
+        print("all servers appear to be down")
+        exit(1)
 
 
 # Send login request to server
@@ -140,14 +156,6 @@ async def receive_message(m: dict[str, Any]):
     print(m["sender"] + ": " + m["content"] + "\n")
 
 
-# Set up the event loop and handlers for requests from server
-async def setup():
-    global session
-    # listen for messages from server
-    session.register_handler("receive_message", receive_message)
-    session.run_in_background(session.run_event_loop())
-
-
 # Close the socket connection client-side
 async def close():
     global writer, session, client_user
@@ -158,7 +166,7 @@ async def close():
 
 
 # in main, do the connect and setup and UI
-async def main(host: str, port: int):
+async def main():
     global client_user
     print(
         "//////////////////////////////////////////////////////////\n"
@@ -190,71 +198,78 @@ async def main(host: str, port: int):
         "//                                                      //\n"
         "//////////////////////////////////////////////////////////\n"
     )
-    # connect to server
-    await connect(host, port)
-    print("Connected to server.\n")
-    # setup the event loop and handlers
-    await setup()
 
-    # take input from user
+    cfg = config.load()
+
     while True:
-        # inp = input(">>>  ")
-        inp = await aioconsole.ainput(">>>  ")
-        tokens = inp.split()
+        try:
+            # connect to server
+            await connect(cfg)
+            print("Connected to server.\n")
 
-        # if no action specified, loop again
-        if len(tokens) < 1:
-            print("No action specified.\n")
-            continue
+            # take input from user
+            while True:
+                # inp = input(">>>  ")
+                inp = await aioconsole.ainput(">>>  ")
+                tokens = inp.split()
 
-        # handle user specified actions below
-        action = tokens[0]
-        if len(tokens) > 2:
-            print("Too many arguments specified.\n")
-            continue
-        # creating new user
-        if action == "create":
-            if len(tokens) < 2:
-                print("Missing argument: username.\n")
-            else:
-                u = tokens[1]
-                await create_user(User(u))
-        # logging in a user
-        elif action == "login":
-            if len(tokens) < 2:
-                print("Missing argument: username.\n")
-            else:
-                u = tokens[1]
-                await login_user(User(u))
-        # listing users that match filter
-        elif action == "list":
-            if len(tokens) < 2:
-                # assume they want all accounts listed
-                await list_accounts("*")
-            else:
-                filter = tokens[1]
-                await list_accounts(filter)
-            print("\n")
-        # sending a message to user
-        elif action == "send":
-            if len(tokens) < 2:
-                print("Missing argument: username.\n")
-            else:
-                u = tokens[1]
-                msgtxt = await aioconsole.ainput("Please input the message below:\n")
-                # msgtxt = input("Please input the message below:\n")
-                await send(msgtxt, User(u))
-        # delete user
-        elif action == "delete":
-            if len(tokens) < 2:
-                print("Missing argument: username.\n")
-            else:
-                u = tokens[1]
-                await delete_user(User(u))
-        elif action == "bye":
-            await close()
-            print("Goodbye!\n")
-            break
+                # if no action specified, loop again
+                if len(tokens) < 1:
+                    print("No action specified.\n")
+                    continue
+
+                # handle user specified actions below
+                action = tokens[0]
+                if len(tokens) > 2:
+                    print("Too many arguments specified.\n")
+                    continue
+                # creating new user
+                if action == "create":
+                    if len(tokens) < 2:
+                        print("Missing argument: username.\n")
+                    else:
+                        u = tokens[1]
+                        await create_user(User(u))
+                # logging in a user
+                elif action == "login":
+                    if len(tokens) < 2:
+                        print("Missing argument: username.\n")
+                    else:
+                        u = tokens[1]
+                        await login_user(User(u))
+                # listing users that match filter
+                elif action == "list":
+                    if len(tokens) < 2:
+                        # assume they want all accounts listed
+                        await list_accounts("*")
+                    else:
+                        filter = tokens[1]
+                        await list_accounts(filter)
+                    print("\n")
+                # sending a message to user
+                elif action == "send":
+                    if len(tokens) < 2:
+                        print("Missing argument: username.\n")
+                    else:
+                        u = tokens[1]
+                        msgtxt = await aioconsole.ainput(
+                            "Please input the message below:\n"
+                        )
+                        # msgtxt = input("Please input the message below:\n")
+                        await send(msgtxt, User(u))
+                # delete user
+                elif action == "delete":
+                    if len(tokens) < 2:
+                        print("Missing argument: username.\n")
+                    else:
+                        u = tokens[1]
+                        await delete_user(User(u))
+                elif action == "bye":
+                    await close()
+                    print("Goodbye!\n")
+                    break
+        except Disconnected:
+            print("server disconnected, please try again")
 
 
 if __name__ == "__main__":

@@ -11,3 +11,7 @@ class Ok:
 
 
 User = NewType("User", str)
+
+
+class Disconnected(Exception):
+    pass
