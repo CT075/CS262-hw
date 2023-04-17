@@ -20,7 +20,11 @@ class Config:
         host, port = addr
         return self.servers[0] == (host, port)
 
-    def backup_addrs(self, addr: Address) -> list[Address]:
+    def preceding(self, addr: Address) -> list[Address]:
+        my_idx = self.servers.index(addr)
+        return self.servers[:my_idx]
+
+    def following(self, addr: Address) -> list[Address]:
         my_idx = self.servers.index(addr)
         return self.servers[my_idx + 1 :]
 

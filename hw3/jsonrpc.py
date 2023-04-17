@@ -220,6 +220,7 @@ class Session:
     pending_jobs: set[asyncio.Task]
     pending_requests: dict[RequestId, Ivar[Response]]
     handlers: dict[str, Callable[..., Coroutine[None, None, Jsonable]]]
+    is_running: bool
 
     # Initialize session
     def __init__(self, session):
@@ -228,6 +229,7 @@ class Session:
         self.handlers = dict()
         self.pending_jobs = set()
         self.pending_requests = dict()
+        self.is_running = False
 
     def register_handler(
         self,
@@ -325,6 +327,7 @@ class Session:
 
     # Loop to handle all events: client requests and server responses
     async def run_event_loop(self) -> None:
+        self.is_running = True
         # use the transport session iterator to receive messages
         async for payload in self.session:
             obj = json.loads(payload)
@@ -363,6 +366,7 @@ class Session:
                     )
             else:
                 self.run_in_background(self.report_error_nofail(BadRequestError(obj)))
+        self.is_running = False
 
 
 # create a session
