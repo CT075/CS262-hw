@@ -1,6 +1,17 @@
 import unittest
 import asyncio
-from server import State, UserAlreadyExists, UserList, User, MessageList, LoggedIn, NoSuchUser, AlreadyLoggedIn, LoggedOut, Message
+from server import (
+    State,
+    UserAlreadyExists,
+    UserList,
+    User,
+    MessageList,
+    LoggedIn,
+    NoSuchUser,
+    AlreadyLoggedIn,
+    LoggedOut,
+    Message,
+)
 import jsonrpc
 import client
 import warnings
@@ -9,16 +20,15 @@ import io
 import filelib
 import json
 
-#python3 -m unittest testing.py
+# python3 -m unittest testing.py
+
 
 class TestChat(unittest.IsolatedAsyncioTestCase):
-
     async def setup(self):
-        warnings.simplefilter('ignore', category=ResourceWarning)
+        warnings.simplefilter("ignore", category=ResourceWarning)
         state = State()
-        serv = await asyncio.start_server(state.handle_incoming, 'localhost', 8877)
+        serv = await asyncio.start_server(state.handle_incoming, "localhost", 8877)
         return (state, serv)
-    
 
     ################ TESTING PERSISTENCE & 2-FAULT TOLERANCE ################
 
@@ -35,35 +45,33 @@ class TestChat(unittest.IsolatedAsyncioTestCase):
 
         ana = User("ana")
         state.handle_login(None, ana)
-        
+
         result = await state.handle_send_message(Message(ana, User("cam"), "Hello!"))
         self.assertEqual(result.to_jsonable_type(), "ok")
-        self.assertEqual(state.known_users.get(User("cam")), LoggedOut(MessageList([Message(ana, User("cam"),"Hello!")])))
+        self.assertEqual(
+            state.known_users.get(User("cam")),
+            LoggedOut(MessageList([Message(ana, User("cam"), "Hello!")])),
+        )
 
-
-        await filelib.write_obj("testdump.txt", 
-                                json.dumps(state.to_jsonable_type()))
+        await filelib.write_obj("testdump.txt", json.dumps(state.to_jsonable_type()))
         dc = await filelib.read_obj("testdump.txt")
 
         serv.close()
         await serv.wait_closed()
 
-
-    
     ################## TESTING SERVER ##################
 
     ### USER CREATION
 
     async def test_create_user(self):
         state, serv = await self.setup()
-        
+
         ok = await state.create_user("ana")
         self.assertEqual(ok.to_jsonable_type(), "ok")
 
         serv.close()
         await serv.wait_closed()
 
-    
     async def test_create_user_already_exists(self):
         state, serv = await self.setup()
 
@@ -73,7 +81,7 @@ class TestChat(unittest.IsolatedAsyncioTestCase):
             notok = await state.create_user("ana")
         except jsonrpc.JsonRpcError as e:
             self.assertTrue(isinstance(e, UserAlreadyExists))
-            
+
         serv.close()
         await serv.wait_closed()
 
@@ -81,7 +89,7 @@ class TestChat(unittest.IsolatedAsyncioTestCase):
 
     async def test_login_user(self):
         state, serv = await self.setup()
-        
+
         ok = await state.create_user("ana")
         self.assertEqual(ok.to_jsonable_type(), "ok")
 
@@ -189,12 +197,11 @@ class TestChat(unittest.IsolatedAsyncioTestCase):
         serv.close()
         await serv.wait_closed()
 
-
     ### LIST USERS
 
     async def test_list_users(self):
         state, serv = await self.setup()
-        
+
         ok = await state.create_user("ana")
         self.assertEqual(ok.to_jsonable_type(), "ok")
 
@@ -205,8 +212,8 @@ class TestChat(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(ok.to_jsonable_type(), "ok")
 
         lst = await state.list_users()
-        self.assertEqual(lst, UserList(data=['ana', 'cam', 'cat']))
-        
+        self.assertEqual(lst, UserList(data=["ana", "cam", "cat"]))
+
         serv.close()
         await serv.wait_closed()
 
@@ -215,37 +222,36 @@ class TestChat(unittest.IsolatedAsyncioTestCase):
 
         lst = await state.list_users()
         self.assertEqual(lst, UserList(data=[]))
-        
+
         serv.close()
         await serv.wait_closed()
 
     async def test_create_delete_list(self):
         state, serv = await self.setup()
-        
+
         ok = await state.create_user("ana")
         self.assertEqual(ok.to_jsonable_type(), "ok")
         self.assertTrue("ana" in state.known_users)
-        
+
         okdel = await state.delete_user("ana")
         self.assertEqual(okdel.to_jsonable_type(), "ok")
         self.assertTrue("ana" not in state.known_users)
 
         lst = await state.list_users()
         self.assertEqual(lst, UserList(data=[]))
-        
+
         serv.close()
         await serv.wait_closed()
-
 
     ### USER DELETION
 
     async def test_delete_user(self):
         state, serv = await self.setup()
-        
+
         ok = await state.create_user("ana")
         self.assertEqual(ok.to_jsonable_type(), "ok")
         self.assertTrue("ana" in state.known_users)
-        
+
         okdel = await state.delete_user("ana")
         self.assertEqual(okdel.to_jsonable_type(), "ok")
         self.assertTrue("ana" not in state.known_users)
@@ -255,7 +261,7 @@ class TestChat(unittest.IsolatedAsyncioTestCase):
 
     async def test_delete_nonexisting_user(self):
         state, serv = await self.setup()
-        
+
         okdel = await state.delete_user("ana")
         self.assertEqual(okdel.to_jsonable_type(), "ok")
         self.assertTrue("ana" not in state.known_users)
@@ -273,7 +279,7 @@ class TestChat(unittest.IsolatedAsyncioTestCase):
 
         ana = User("ana")
         state.handle_login(None, ana)
-        
+
         try:
             await state.handle_send_message(Message(ana, User("cam"), "Hello!"))
         except jsonrpc.JsonRpcError as e:
@@ -290,14 +296,16 @@ class TestChat(unittest.IsolatedAsyncioTestCase):
 
         ana = User("ana")
         state.handle_login(None, ana)
-        
+
         result = await state.handle_send_message(Message(ana, User("cam"), "Hello!"))
         self.assertEqual(result.to_jsonable_type(), "ok")
-        self.assertEqual(state.known_users.get(User("cam")), LoggedOut(MessageList([Message(ana, User("cam"),"Hello!")])))
+        self.assertEqual(
+            state.known_users.get(User("cam")),
+            LoggedOut(MessageList([Message(ana, User("cam"), "Hello!")])),
+        )
 
         serv.close()
         await serv.wait_closed()
-
 
     ################## TESTING CLIENT ##################
 
@@ -305,9 +313,8 @@ class TestChat(unittest.IsolatedAsyncioTestCase):
 
     async def setup_client(self):
         # setup client
-        await client.connect('localhost', 8877)
+        await client.connect("localhost", 8877)
         await client.setup()
-
 
     async def test_client_connect_setup(self):
         # setup server
@@ -324,7 +331,6 @@ class TestChat(unittest.IsolatedAsyncioTestCase):
     ### CREATE USER
 
     async def test_client_create_user(self):
-        
         # setup server
         state, serv = await self.setup()
         await self.setup_client()
@@ -335,13 +341,12 @@ class TestChat(unittest.IsolatedAsyncioTestCase):
         self.assertIn("successfully", buf.getvalue())
 
         buf.close()
-        
+
         await client.close()
         serv.close()
         await serv.wait_closed()
-    
+
     async def test_client_create_multiple(self):
-        
         # setup server
         state, serv = await self.setup()
         await self.setup_client()
@@ -358,13 +363,12 @@ class TestChat(unittest.IsolatedAsyncioTestCase):
         self.assertIn("successfully", buf.getvalue())
 
         buf.close()
-        
+
         await client.close()
         serv.close()
         await serv.wait_closed()
 
     async def test_client_create_existing(self):
-        
         # setup server
         state, serv = await self.setup()
         await self.setup_client()
@@ -381,7 +385,7 @@ class TestChat(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Error", buf.getvalue())
 
         buf.close()
-        
+
         await client.close()
         serv.close()
         await serv.wait_closed()
@@ -389,7 +393,6 @@ class TestChat(unittest.IsolatedAsyncioTestCase):
     ### LOGIN USER
 
     async def test_client_login_user(self):
-        
         # setup server
         state, serv = await self.setup()
         await self.setup_client()
@@ -402,7 +405,7 @@ class TestChat(unittest.IsolatedAsyncioTestCase):
         with redirect_stdout(buf):
             await client.login_user("ana")
         self.assertIn("logged in", buf.getvalue())
-        
+
         buf.close()
 
         await client.close()
@@ -410,7 +413,6 @@ class TestChat(unittest.IsolatedAsyncioTestCase):
         await serv.wait_closed()
 
     async def test_client_login_nonexisting(self):
-        
         # setup server
         state, serv = await self.setup()
         await self.setup_client()
@@ -419,9 +421,9 @@ class TestChat(unittest.IsolatedAsyncioTestCase):
         with redirect_stdout(buf):
             await client.login_user("ana")
         self.assertIn("Error", buf.getvalue())
-        
+
         buf.close()
-        
+
         await client.close()
         serv.close()
         await serv.wait_closed()
@@ -429,7 +431,6 @@ class TestChat(unittest.IsolatedAsyncioTestCase):
     ### LIST USERS
 
     async def test_client_list_users(self):
-        
         # setup server
         state, serv = await self.setup()
         await self.setup_client()
@@ -454,7 +455,6 @@ class TestChat(unittest.IsolatedAsyncioTestCase):
         await serv.wait_closed()
 
     async def test_client_list_all(self):
-        
         # setup server
         state, serv = await self.setup()
         await self.setup_client()
@@ -481,7 +481,6 @@ class TestChat(unittest.IsolatedAsyncioTestCase):
     ### DELETE USER
 
     async def test_client_delete_user(self):
-        
         # setup server
         state, serv = await self.setup()
         await self.setup_client()
@@ -502,7 +501,6 @@ class TestChat(unittest.IsolatedAsyncioTestCase):
         await serv.wait_closed()
 
     async def test_client_delete_nonexisting(self):
-        
         # setup server
         state, serv = await self.setup()
         await self.setup_client()
@@ -511,7 +509,7 @@ class TestChat(unittest.IsolatedAsyncioTestCase):
         with redirect_stdout(buf):
             await client.delete_user("ana")
         self.assertIn("successfully", buf.getvalue())
-        
+
         buf.close()
 
         await client.close()
@@ -521,7 +519,6 @@ class TestChat(unittest.IsolatedAsyncioTestCase):
     ### SEND MESSAGES
 
     async def test_client_send_message(self):
-        
         # setup server
         state, serv = await self.setup()
         await self.setup_client()

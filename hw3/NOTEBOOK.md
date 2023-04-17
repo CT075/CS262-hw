@@ -3,15 +3,15 @@
 For persistence, we are choosing to write to a file. Each server will have their own file
 keeping track of the state.
 
-For 2-fault tolerance, we settled on a model with 1 primary server and 2 backup servers 
-arranged in a chain as shown below, where C is the client, PS is the primary server, and 
-BS are the backup servers. We also number the servers for convenience of discussion.
+For 2-fault tolerance, we settled on a length-3 chain replica setup as shown below,
+where C is the client, PS is the primary server, and BS are the backups. We also
+number the servers for convenience of discussion.
 
                         C ----> PS(1) ----> BS(2) ----> BS(3)
 
 We focus on synchronized local correctness and ensure that the client-side understanding
 of the state matches the server-side.
-To ensure that no messages are dropped and that all servers consistently have the same 
+To ensure that no messages are dropped and that all servers consistently have the same
 worldview as the client, we establish the following ordering of events:
 
 1. Client sends request
@@ -32,3 +32,10 @@ If BS(2) dies, we ensure that PS(1) now connects to BS(3) instead, bypassing the
 
 Since we are using asyncio, we do not need to block, as we can simply await for actions to be 
 completed.
+
+# Implementation notes
+
+Our original plan was to insert a middleman in the transport layer to forward requests
+verbatim to the replicas However, as there are actions that don't necessarily require
+an update to persistent state (such as sending a message to a user that is already logged in),
+this idea was nixed for bespoke forwarding as required.

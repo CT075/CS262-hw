@@ -1,11 +1,11 @@
 import asyncio
 import json
 from dataclasses import dataclass
-from typing import Optional, Callable, NewType, Awaitable
+from typing import Optional, Callable, Awaitable, NoReturn
+from common import User, Ok
 
+import config
 import jsonrpc
-
-User = NewType("User", str)
 
 SERVER_DB_FORMAT = "{host}-{port}-db.json"
 
@@ -22,12 +22,6 @@ class Message:
             "recipient": self.recipient,
             "content": self.content,
         }
-
-
-# TODO: should this live somewhere common?
-class Ok:
-    def to_jsonable_type(self):
-        return "ok"
 
 
 # See notes on [jsonrpc.Jsonable] for why these wrappers are necessary.
@@ -88,6 +82,13 @@ class AlreadyLoggedInSession(jsonrpc.JsonRpcError):
         super().__init__(code=306, message=self.message, data={"current_user": s})
 
 
+class ImABackup(jsonrpc.JsonRpcError):
+    message = "I am a backup, please connect to a primary server"
+
+    def __init__(self):
+        super().__init__(code=500, message=self.message, data=[])
+
+
 # This class holds the details of any particular client connection (namely, the
 # username of the user it corresponds to). We indirect [login_handler] and
 # [logout_handler] through this object because they need both connection-local
@@ -97,7 +98,7 @@ class Session:
     owner: jsonrpc.Session
     username: Optional[User]
     # [login_handler] will raise one of the above exceptions on failure.
-    login_handler: Callable[["Session", User], MessageList]
+    login_handler: Callable[["Session", User], Awaitable[MessageList]]
     # logging out is idempotent, so [logout_handler] should not fail.
     logout_handler: Callable[[User], None]
     message_handler: Callable[[Message], Awaitable[Ok]]
@@ -105,7 +106,7 @@ class Session:
     def __init__(
         self,
         owner: jsonrpc.Session,
-        login_handler: Callable[["Session", User], MessageList],
+        login_handler: Callable[["Session", User], Awaitable[MessageList]],
         logout_handler: Callable[[User], None],
         message_handler: Callable[[Message], Awaitable[Ok]],
     ):
@@ -120,7 +121,7 @@ class Session:
             raise AlreadyLoggedInSession(self.username)
 
         self.username = username
-        return self.login_handler(self, username)
+        return await self.login_handler(self, username)
 
     async def send_message(self, text: str, recipient: User) -> Ok:
         if self.username is None:
@@ -144,9 +145,7 @@ class Session:
 @dataclass
 class Db:
     d: dict[User, MessageList]
-
-    def to_jsonable_type(self):
-        return [(k, v.to_jsonable_type()) for k, v in self.d.items()]
+    store_path: str
 
     def __getitem__(self, item: User) -> MessageList:
         return self.d[item]
@@ -157,13 +156,6 @@ class Db:
 
         return result
 
-    # TODO: commit
-    def __setitem__(self, k: User, v: MessageList):
-        self.d[k] = v
-
-    def __delitem__(self, user: User):
-        del self.d[user]
-
     def __contains__(self, user: User):
         return user in self.d
 
@@ -172,6 +164,25 @@ class Db:
 
     def get(self, user: User) -> Optional[MessageList]:
         return self.d.get(user)
+
+    def to_jsonable_type(self):
+        return [(k, v.to_jsonable_type()) for k, v in self.d.items()]
+
+    def commit(self):
+        try:
+            with open(self.store_path, "w") as f:
+                json.dump(f, self.to_jsonable_type())
+        except IOError:
+            # in a real app, we'd log
+            pass
+
+    def __setitem__(self, k: User, v: MessageList):
+        self.d[k] = v
+        self.commit()
+
+    def __delitem__(self, user: User):
+        del self.d[user]
+        self.commit()
 
 
 # We can avoid locks here due to the guarantees of async-await programming.
@@ -186,7 +197,7 @@ class State:
     def __init__(self, db):
         self.db = db
 
-    def handle_login(self, session: Session, user: User) -> MessageList:
+    async def handle_login(self, session: Session, user: User) -> MessageList:
         if user not in self.db:
             raise NoSuchUser(user)
 
@@ -198,7 +209,7 @@ class State:
         return self.db.fetch_pending_msgs(user)
 
     def handle_logout(self, user: User) -> None:
-        self.db[user] = MessageList([])
+        del self.logins[user]
 
     async def handle_send_message(self, msg: Message) -> Ok:
         # Send the message to user
@@ -234,14 +245,30 @@ class State:
         # user didn't exist in the first place, cool.
         return Ok()
 
-    # TODO: the difference between [session] and [user_session] is confusing,
-    # come up with better names
-    async def handle_incoming(self, reader, writer) -> None:
+    async def reject_client(self) -> NoReturn:
+        raise ImABackup()
+
+    async def accept_client(self) -> Ok:
+        return Ok()
+
+    async def run_backup(self, reader, writer) -> None:
+        session = jsonrpc.spawn_session(reader, writer)
+
+        session.register_handler("register_client", self.reject_client)
+        # session.register_handler("login")
+        session.register_handler("create_user", self.create_user)
+        session.register_handler("delete_user", self.delete_user)
+        # session.register_handler("send", user_session.send_message)
+
+        await session.run_event_loop()
+
+    async def run_primary(self, reader, writer) -> None:
         session = jsonrpc.spawn_session(reader, writer)
         user_session = Session(
             session, self.handle_login, self.handle_logout, self.handle_send_message
         )
 
+        session.register_handler("register_client", self.accept_client)
         session.register_handler("login", user_session.login)
         session.register_handler("create_user", self.create_user)
         session.register_handler("list_users", self.list_users)
@@ -251,8 +278,15 @@ class State:
         await session.run_event_loop()
         user_session.cleanup()
 
+    # TODO: the difference between [session] and [user_session] is confusing,
+    # come up with better names
+    async def handle_incoming(self, reader, writer) -> None:
+        await self.run_primary(reader, writer)
+
 
 async def main(host: str, port: int):
+    cfg = config.load()
+
     try:
         with open(SERVER_DB_FORMAT.format(host=host, port=port), "r") as f:
             db = json.load(f)

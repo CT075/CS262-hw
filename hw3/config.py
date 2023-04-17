@@ -1,11 +1,10 @@
 from dataclasses import dataclass
 import json
-from typing import NewType, Tuple
+from typing import Tuple
+
+from common import Host, Port
 
 DEFAULT_CONFIG = "config.json"
-
-Host = NewType("Host", str)
-Port = NewType("Port", int)
 
 
 @dataclass
