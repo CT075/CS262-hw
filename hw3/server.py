@@ -501,13 +501,17 @@ async def main(host: str, port: int):
             db = resp.payload["db"]  # type: ignore
             mtime = resp.payload["mtime"]  # type: ignore
 
+    db_ = Db(
+        db,
+        SERVER_DB_FORMAT.format(host=host, port=port),
+    )
+
+    db_.commit()
+
     state = State(
         cfg,
         addr,
-        Db(
-            db,
-            SERVER_DB_FORMAT.format(host=host, port=port),
-        ),
+        db_,
         is_primary,
         ReplicaInfo(next=next, tail=tail),
         mtime,
